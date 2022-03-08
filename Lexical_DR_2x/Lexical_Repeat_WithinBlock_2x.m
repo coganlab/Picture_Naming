@@ -1,13 +1,18 @@
  function Lexical_Repeat_WithinBlock_2x(subject,practice,startblock)
 % Lexical_Repeat_WithinBlock(subject,practice,startblock)
 % subject = subject number
-% practice =  practice or full task. 1 = 12 trial practice run, 2 = 2 x 42 trials
+% practice =  practice or full task. 1 = 12 trial practice run, 2 = 2 x 42 
+% trials. 2 = testing, which is identical to practice run except that it
+% does not check screen timing to allow testing on windows.
 % startblock = block to start from.  1 if new, >1 if needing to finish from
 %  
 % previously run task
 
 sca;
-
+if practice == 2
+    Screen('Preference', 'SkipSyncTests', 1);
+    practice = 1;
+end
 playbackdevID = 3; % 4 for usb amp, 3 without
 capturedevID = 1; % 2 for usb amp, 1 without
 %subject = 'Test2';
