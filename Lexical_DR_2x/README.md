@@ -44,4 +44,4 @@ You will see the cue Yes/No or Repeat appear on the screen. If you see the Yes/N
 
 ## Source:
 
-![](https://coganlab-eeg.pbworks.com/w/page/137067198/Lexical%20Decision%20Repeat%20Delay?format=pdf)
+<img src="https://coganlab-eeg.pbworks.com/w/page/137067198/Lexical%20Decision%20Repeat%20Delay?format=png-360-0&amp;revid=328713888"/>
