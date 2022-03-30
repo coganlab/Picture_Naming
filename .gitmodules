@@ -1,0 +1,3 @@
+[submodule "MATLAB-env"]
+	path = MATLAB-env
+	url = git@github.com:coganlab/MATLAB-env.git
