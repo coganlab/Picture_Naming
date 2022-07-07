@@ -1,5 +1,4 @@
 function visual_naming(subject, pediatric, practice, startblock)
-% startblock,
 % A function that runs a visual naming task in pyschtoolbox.
 %
 % The task is to name the objects in the image.
@@ -50,12 +49,11 @@ function visual_naming(subject, pediatric, practice, startblock)
 
     % Initialize values
     nBlocks = 4; % 10
-    trialCount=0;
-    blockCount=0;
+    nTrials = 100;
     freqS = 44100;
     
     if practice==1
-        trialEnd = 12; %12
+        nTrials = 12; %12
         nBlocks = 1;
         fileSuff = '_Pract';
     end
@@ -109,4 +107,50 @@ function visual_naming(subject, pediatric, practice, startblock)
 
     % Block loop
     for iB=iBStart:nBlocks
-        
+        % Run block and collect data
+        data = task_block(iB, nTrials, {sounds, imgs});
+
+        % Write data to file
+        save([subjectDir '/' iB],"data",'-mat')
+    end
+
+end
+    
+
+function data = task_block(block_num, n_trials, Stimuli)
+% function that generates the data for a block of trials
+% block_num is the block number
+% n_trials is the number of trials in the block
+% Stimuli is the stimuli for the block
+
+    % initialize data
+    data = [];
+    
+    % loop through trials
+    for iT = 1:n_trials
+    
+        % generate trial data
+        data(iT) = task_trial(block_num, iT, Stimuli);
+    
+    end
+    % Break Screen
+    Screen('TextSize', window, 50);
+    while ~KbCheck
+        % Sleep one millisecond after each check, so we don't
+        % overload the system in Rush or Priority > 0
+        % if taskn == 1
+        %         DrawFormattedText(window, 'Please repeat each word/non-word after the speak cue. Press any key to start. ', 'center', 'center', [1 1 1]);
+        % elseif taskn == 2
+        %         DrawFormattedText(window, 'Please say Yes for a word and No for a non-word after the speak cue. Press any key to start. ', 'center', 'center', [1 1 1]);
+        % end
+        % Set the text size
+ 
+        DrawFormattedText(window, 'Take a short break and press any key to continue', 'center', 'center', [1 1 1]);
+        % Flip to the screen
+        Screen('Flip', window);
+        WaitSecs(0.001);
+    end
+end
+
+function data = task_trial(trial_num, Stimuli)
+% function that generates the data for a trial
