@@ -1,38 +1,35 @@
-function visual_naming(subject, pediatric, practice, startblock)
+function visual_naming(subject, practice, startblock)
 % A function that runs a visual naming task in pyschtoolbox.
 %
 % The task is to name the objects in the image.
 %
-% The task is divided into three phases:
-%   1. Fixation
-%   2. Stimulus
-%   3. Response
-%
-% The task is divided into blocks. Each block is divided into trials.
+% The task is divided into blocks. 
+% Each block is divided into trials.
+% Each trial is divided into four events:
+%   1. Cue
+%   2. Stimuli
+%   3. Go
+%   4. Response
+
     sca;
     soundDir = 'Stimuli/sounds/';
-    if pediatric == 1
-        imgDir = 'Stimuli/pictures/pediatric/';
-    else
-        imgDir = 'Stimuli/pictures/adult/';
-    end
+    imgDir = 'Stimuli/pictures/';
     
     if ~exist('startblock','var')
         startblock = 1;
     end
-    % Load the sounds
-    sounds = {};
-    sounds{1} = audioread([soundDir 'All_Tokens_1.wav']);
-    sounds{2} = audioread([soundDir 'All_Tokens_2.wav']);
-    sounds{3} = audioread([soundDir 'All_Tokens_3.wav']);
     
-    % Load the images
+    % Load the stimuli
     imgfiles = dir(imgDir);
     imgfiles = {imgfiles.name};
     imgfiles = imgfiles(3:end);
-    imgs = {};
+    stim = struct();
     for i = 1:length(imgfiles)
-        imgs{i} = imread([imgDir imgfiles{i}]);
+        %text = imgfiles{i}(1:end-4);
+        %stim.(text).text = text;
+        stim(i).text = imgfiles{i}(1:end-4);
+        stim(i).image = imread([imgDir imgfiles{i}]);
+        stim(i).sound = audioread([soundDir stim(i).text '.wav']);
     end
     
     % Create output folder
@@ -108,7 +105,7 @@ function visual_naming(subject, pediatric, practice, startblock)
     % Block loop
     for iB=iBStart:nBlocks
         % Run block and collect data
-        data = task_block(iB, nTrials, {sounds, imgs});
+        data = task_block(iB, nTrials, stim);
 
         % Write data to file
         save([subjectDir '/' iB],"data",'-mat')
@@ -125,12 +122,17 @@ function data = task_block(block_num, n_trials, Stimuli)
 
     % initialize data
     data = [];
-    
+
+    % Generate trials by shuffling stimuli and jittering timing
+    {'text', 'image', 'sound'}
+    {'apple', ''} 
+    trials = genTrials(Stimuli)
+    stim_table = reshape(struct2cell(stimuli),[3,5]);
     % loop through trials
     for iT = 1:n_trials
-    
+        trial = trials(iT);
         % generate trial data
-        data(iT) = task_trial(block_num, iT, Stimuli);
+        data(iT) = task_trial(trial);
     
     end
     % Break Screen
@@ -138,11 +140,6 @@ function data = task_block(block_num, n_trials, Stimuli)
     while ~KbCheck
         % Sleep one millisecond after each check, so we don't
         % overload the system in Rush or Priority > 0
-        % if taskn == 1
-        %         DrawFormattedText(window, 'Please repeat each word/non-word after the speak cue. Press any key to start. ', 'center', 'center', [1 1 1]);
-        % elseif taskn == 2
-        %         DrawFormattedText(window, 'Please say Yes for a word and No for a non-word after the speak cue. Press any key to start. ', 'center', 'center', [1 1 1]);
-        % end
         % Set the text size
  
         DrawFormattedText(window, 'Take a short break and press any key to continue', 'center', 'center', [1 1 1]);
@@ -152,5 +149,7 @@ function data = task_block(block_num, n_trials, Stimuli)
     end
 end
 
-function data = task_trial(trial_num, Stimuli)
-% function that generates the data for a trial
+function data = task_trial(trial_struct)
+% function that presents a Psychtoolbox trial and collects the data
+% trial_struct is the trial structure
+end
