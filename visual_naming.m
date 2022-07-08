@@ -34,12 +34,12 @@ function visual_naming(subject, practice, startblock)
         stimuli(i).duration = length(stimuli(i).sound)/Fs;
     end
     % Initialize values
-    nBlocks = 4; % 10
+    nBlocks = 4; 
     nTrials = 100;
     freqS = 44100;
     
     if practice==1
-        nTrials = 12; %12
+        nTrials = 12; % 2 items
         nBlocks = 1;
         fileSuff = '_Pract';
     end
@@ -115,7 +115,7 @@ function visual_naming(subject, practice, startblock)
     % Block loop
     for iB=iBStart:nBlocks
         % Run block and collect data
-        data = task_block(iB, nTrials, stimuli, cond, event);
+        data = task_block(iB, nTrials, trials);
 
         % Write data to file
         save([subjectDir '/' iB],"data",'-mat')
@@ -124,7 +124,7 @@ function visual_naming(subject, practice, startblock)
 end
     
 
-function data = task_block(block_num, n_trials, Stimuli, cond, event)
+function data = task_block(block_num, n_trials, trials)
 % function that generates the data for a block of trials
 % block_num is the block number
 % n_trials is the number of trials in the block
@@ -133,7 +133,7 @@ function data = task_block(block_num, n_trials, Stimuli, cond, event)
     % initialize data
     data = [];
 
-    % Generate trials by shuffling stimuli and jittering timing
+    % Shuffle, multiply, and jitter trials
     
     
     stim_table = reshape(struct2cell(stimuli),[3,5]);
@@ -184,6 +184,9 @@ function trials = genTrials(stimuli, conditions, events)
                 trial = events;
                 trial.Cue.stimuli = conditions{j};
                 trial.Stimuli.stimuli = stimuli(i).(modality{k});
+                if strcmp(trial.Stimuli.duration, {'sound','audio'})
+                    trial.Stimuli.duration = stimuli(i).duration;
+                end
                 trial.Go.stimuli = "Go";
                 trial.Response.stimuli = "";
                 trials(k+3*(j-1)).(text) = trial;
