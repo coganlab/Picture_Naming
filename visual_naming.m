@@ -46,7 +46,7 @@ function visual_naming(subject, practice, startblock)
 
     event = struct( ...
         'Cue', struct('duration',2,'jitter',0.25), ...
-        'Stimuli', struct('duration','sound','jitter',0.25), ...
+        'Stimuli', struct('duration','sound'), ...
         'Go', struct('duration',1,'jitter',0.25), ...
         'Response', struct('duration',3,'jitter',0.25));
 
@@ -64,58 +64,23 @@ function visual_naming(subject, practice, startblock)
         mkdir(subjectDir)
     end
     
-
-    % Initialize Sounddriver
-    InitializePsychSound(1);
-
-    % Screen Setup
-    PsychDefaultSetup(2);
-    % Get the screen numbers
-    screens = Screen('Screens');
-    % Select the external screen if it is present, else revert to the 
-    % native screen
-    screenNumber = max(screens);
-    % Define black, white and grey
-    black = BlackIndex(screenNumber);
-    white = WhiteIndex(screenNumber);
-    grey = white / 2;
-    % Open an on screen window and color it grey
-    [window, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
-
-    % Set the blend funnction for the screen
-    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-    % Get the size of the on screen window in pixels
-    [screenXpixels, screenYpixels] = Screen('WindowSize', window);
-    ifi = Screen('GetFlipInterval', window);
-    % Get the centre coordinate of the window in pixels
-    [xCenter, yCenter] = RectCenter(windowRect);
-    % Set the text size
-    Screen('TextSize', window, 50);
-
-    % Circle stuff for photodiode
-    baseCircle = [0 0 baseCircleDiam baseCircleDiam];
-    %centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, screenYpixels-0.5*baseCircleDiam); %
-    centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
-    
-    circleColor1 = [1 1 1]; % white
-    circleColor2 = [0 0 0]; % black
-    % Query the frame duration
+    % window = init_psychtoolbox
 
     % Ready Loop
-    while ~KbCheck
-        DrawFormattedText(window, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
-        
-        % Sleep one millisecond after each check, so we don't
-        % overload the system in Rush or Priority > 0
-        % Flip to the screen
-        Screen('Flip', window);
-        WaitSecs(0.001);
-    end
+%     while ~KbCheck
+%         DrawFormattedText(window, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
+%         
+%         % Sleep one millisecond after each check, so we don't
+%         % overload the system in Rush or Priority > 0
+%         % Flip to the screen
+%         Screen('Flip', window);
+%         WaitSecs(0.001);
+%     end
 
     % Block loop
-    for iB=iBStart:nBlocks
+    for iB=startblock:nBlocks
         % Run block and collect data
-        data = task_block(iB, nTrials, trials);
+        data = task_block(trials, 5);
 
         % Write data to file
         save([subjectDir '/' iB],"data",'-mat')
@@ -124,7 +89,7 @@ function visual_naming(subject, practice, startblock)
 end
     
 
-function data = task_block(block_num, n_trials, trials)
+function data = task_block(trials, reps, items)
 % function that generates the data for a block of trials
 % block_num is the block number
 % n_trials is the number of trials in the block
@@ -132,17 +97,35 @@ function data = task_block(block_num, n_trials, trials)
 
     % initialize data
     data = [];
+    block = [];
+    if exist('items','var')
+        non_items = setdiff(items,fieldnames(trials));
+        trials = rmfield(trials,non_items);
+    else
+        items = fieldnames(trials);
+    end
 
-    % Shuffle, multiply, and jitter trials
-    
-    
-    stim_table = reshape(struct2cell(stimuli),[3,5]);
+    % Multiply, shuffle, and jitter trials
+    temp = struct2cell(trials);
+    block = repmat([temp{:}],[1,reps]); % multiply and stack
+    block = block(randperm(length(block))); % shuffle
+    for iT = 1:length(block) % jitter
+        events = fieldnames(block(iT));
+        for i = events
+            event = i{:};
+            info = block(iT).(event);
+            if any(strcmp(fieldnames(info),'jitter'))
+                info.duration = info.duration + info.jitter*rand(1,1);
+                block(iT).(event) = rmfield(info,'jitter');
+            end
+        end
+    end
+
     % loop through trials
-    for iT = 1:n_trials
-        trial = trials(iT);
+    for iT = 1:length(block)
+        trial = block(iT);
         % generate trial data
         data(iT) = task_trial(trial);
-    
     end
     % Break Screen
     Screen('TextSize', window, 50);
@@ -199,4 +182,43 @@ end
 function data = task_trial(trial_struct)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
+end
+
+function window = init_psychtoolbox()
+
+    % Initialize Sounddriver
+    InitializePsychSound(1);
+
+    % Screen Setup
+    PsychDefaultSetup(2);
+    % Get the screen numbers
+    screens = Screen('Screens');
+    % Select the external screen if it is present, else revert to the 
+    % native screen
+    screenNumber = max(screens);
+    % Define black, white and grey
+    black = BlackIndex(screenNumber);
+    white = WhiteIndex(screenNumber);
+    grey = white / 2;
+    % Open an on screen window and color it grey
+    [window, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
+
+    % Set the blend funnction for the screen
+    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+    % Get the size of the on screen window in pixels
+    [screenXpixels, screenYpixels] = Screen('WindowSize', window);
+    ifi = Screen('GetFlipInterval', window);
+    % Get the centre coordinate of the window in pixels
+    [xCenter, yCenter] = RectCenter(windowRect);
+    % Set the text size
+    Screen('TextSize', window, 50);
+
+    % Circle stuff for photodiode
+    baseCircle = [0 0 baseCircleDiam baseCircleDiam];
+    %centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, screenYpixels-0.5*baseCircleDiam); %
+    centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
+    
+    circleColor1 = [1 1 1]; % white
+    circleColor2 = [0 0 0]; % black
+    % Query the frame duration
 end
