@@ -64,7 +64,9 @@ function visual_naming(subject, practice, startblock)
         mkdir(subjectDir)
     end
     
+    % ready psychtoolbox
     window = init_psychtoolbox();
+    ifi = Screen('GetFlipInterval', window);
 
     % Ready Loop
     while ~KbCheck
@@ -190,7 +192,6 @@ function trials = genTrials(stimuli, conditions, events)
 % an integer (for how many seconds) or the corresponding audio modality
 % name to make the duration be the length of the audio file. A 'jitter'
 % field may also be included for random jittering of timing.
-% Fs is the sampling rate of the audio files (optional)
     trials = struct();
     pot_modality = {'text','letters','image','picture','sound','audio'};
     modality = fieldnames(stimuli);
@@ -235,6 +236,7 @@ function window = init_psychtoolbox()
 
     % Initialize Sounddriver
     InitializePsychSound(1);
+    
 
     % Screen Setup
     PsychDefaultSetup(2);
@@ -254,17 +256,16 @@ function window = init_psychtoolbox()
     Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     % Get the size of the on screen window in pixels
     [screenXpixels, screenYpixels] = Screen('WindowSize', window);
-    ifi = Screen('GetFlipInterval', window);
     % Get the centre coordinate of the window in pixels
     [xCenter, yCenter] = RectCenter(windowRect);
     % Set the text size
     Screen('TextSize', window, 50);
 
     % Circle stuff for photodiode
+    baseCircleDiam=75;
     baseCircle = [0 0 baseCircleDiam baseCircleDiam];
     %centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, screenYpixels-0.5*baseCircleDiam); %
     centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
-    
     circleColor1 = [1 1 1]; % white
     circleColor2 = [0 0 0]; % black
     % Query the frame duration
