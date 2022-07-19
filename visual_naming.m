@@ -33,17 +33,16 @@ function visual_naming(subject, practice, startblock)
         [stimuli(i).sound, Fs] = audioread([soundDir stimuli(i).text '.wav']);
         stimuli(i).duration = length(stimuli(i).sound)/Fs;
     end
+    
     % Initialize values
     nBlocks = 4; 
-    nTrials = 100;
+    nTrials = 20; % real number is nTrials X items X 6
+    nrchannels = 1;
     freqS = 44100;
-    
-    if practice==1
-        nTrials = 12; % 2 items
-        nBlocks = 1;
-        fileSuff = '_Pract';
-    end
-
+    freqR = 20000;
+    playbackdevID = 3; % 4 for usb amp, 3 without
+    capturedevID = 1; % 2 for usb amp, 1 without
+    baseCircleDiam=75;
     event = struct( ...
         'Cue', struct('duration',2,'jitter',0.25), ...
         'Stimuli', struct('duration','sound'), ...
@@ -51,7 +50,15 @@ function visual_naming(subject, practice, startblock)
         'Response', struct('duration',3,'jitter',0.25));
 
     trials = genTrials(stimuli, conditions, event);
-
+    
+    if practice==1
+        items = {'apple','spoon'}; % 2 items
+        nBlocks = 1;
+        fileSuff = '_Pract';
+    else
+        items = fieldnames(trials);
+    end
+    
     % Create output folder
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
@@ -65,8 +72,7 @@ function visual_naming(subject, practice, startblock)
     end
     
     % ready psychtoolbox
-    window = init_psychtoolbox();
-    ifi = Screen('GetFlipInterval', window);
+    window = init_psychtoolbox(baseCircleDiam);
 
     % Ready Loop
     while ~KbCheck
@@ -82,7 +88,8 @@ function visual_naming(subject, practice, startblock)
     % Block loop
     for iB=startblock:nBlocks
         % Run block and collect data
-        data = task_block(trials, 5);
+        data = task_block(trials, nTrials, capturedevID, freqR, ...
+            nrchannels, playbackdevID, freqS, window, items);
 
         % Write data to file
         save([subjectDir '/' iB],"data",'-mat')
@@ -91,20 +98,29 @@ function visual_naming(subject, practice, startblock)
 end
     
 
-function data = task_block(trials, reps, items)
+function data = task_block(trials, reps, recID, freqR, nrchannels, playbackID, freqS, window, items)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
 % reps is the number of times the stim set is repeated in the block
+% recID is the device ID number of the recording device detected by
+% psychtoolbox with a recording sampling frequency freqR recorded through
+% the number of channels indicated by nrchannels
+% playbackID is the device ID number of the sound playing device detected
+% by psychtoolbox played at a sampling rate of freqS
+% window is the psychtoolbox window created earlier
 % items is the stimuli subjects you are using (optional)
 
     % initialize data
+    repetitions = 1;
+    StartCue = 0;
+    WaitForDeviceStart = 1;
     data = [];
     block = [];
     if exist('items','var')
         non_items = setdiff(items,fieldnames(trials));
         trials = rmfield(trials,non_items);
     else
-        items = fieldnames(trials);
+        items = fieldnames(trials); 
     end
 
     % Multiply, shuffle, and jitter trials
@@ -124,19 +140,20 @@ function data = task_block(trials, reps, items)
     end
     
     % Setup recording!
-    %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
-    pahandle2 = PsychPortAudio('Open', capturedevID, 2, 0, freqR, nrchannels,0, 0.015);
-    
-    % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
-    PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
-    
-    %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-    PsychPortAudio('Start', pahandle2, 0, 0, 1);
+    ifi = Screen('GetFlipInterval', window);
+%     %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
+%     pahandle2 = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
+%     
+%     % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
+%     PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
+%     
+%     %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
+%     PsychPortAudio('Start', pahandle2, 0, StartCue, WaitForDeviceStart);
     
     % play tone!
-    tone500=audioread('c:\psychtoolbox_scripts\Lexical_Passive\stim\tone500_3.wav');
+    tone500=audioread([userpath '/../../psychtoolbox_scripts/tone500_3.wav']);
     % tone500=.5*tone500;
-    pahandle = PsychPortAudio('Open', playbackdevID, 1, 2, freqS, nrchannels,0, 0.015);
+    pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels,0, 0.015);
     % PsychPortAudio('Volume', pahandle, 1); % volume
     PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
     PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
@@ -151,9 +168,8 @@ function data = task_block(trials, reps, items)
     end
     %
     %while ~kbCheck
-    ifi_window = Screen('GetFlipInterval', window);
     suggestedLatencySecs = 0.015;
-    waitframes = ceil((2 * suggestedLatencySecs) / ifi_window) + 1;
+    waitframes = ceil((2 * suggestedLatencySecs) / ifi) + 1;
     prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT,NASGU>
     postlat = PsychPortAudio('LatencyBias', pahandle);
     Priority(2);
@@ -162,7 +178,7 @@ function data = task_block(trials, reps, items)
     for iT = 1:length(block)
         trial = block(iT);
         % generate trial data
-        data(iT) = task_trial(trial);
+        data(iT) = task_trial(trial, window);
     end
     % Break Screen
     Screen('TextSize', window, 50);
@@ -218,7 +234,7 @@ function trials = genTrials(stimuli, conditions, events)
 end
 
 
-function data = task_trial(trial_struct)
+function data = task_trial(trial_struct, window)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
@@ -232,7 +248,7 @@ function data = task_trial(trial_struct)
     end
 end
 
-function window = init_psychtoolbox()
+function window = init_psychtoolbox(baseCircleDiam)
 
     % Initialize Sounddriver
     InitializePsychSound(1);
@@ -262,7 +278,6 @@ function window = init_psychtoolbox()
     Screen('TextSize', window, 50);
 
     % Circle stuff for photodiode
-    baseCircleDiam=75;
     baseCircle = [0 0 baseCircleDiam baseCircleDiam];
     %centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, screenYpixels-0.5*baseCircleDiam); %
     centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
