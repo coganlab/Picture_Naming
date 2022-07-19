@@ -58,6 +58,10 @@ function visual_naming(subject, practice, startblock)
     else
         items = fieldnames(trials);
     end
+
+    numTrialsTot = length(items)*nTrials*length(conditions)...
+        *length(modality)*nBlocks;
+    data = zeroes(numTrials,1);
     
     % Create output folder
     c = clock;
@@ -88,7 +92,9 @@ function visual_naming(subject, practice, startblock)
     % Block loop
     for iB=startblock:nBlocks
         % Run block and collect data
-        data = task_block(trials, nTrials, capturedevID, freqR, ...
+        n = numTrialsTot/nBlocks;
+        ind = (1:n)+(n*(iB-1));
+        data(ind,1) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
             nrchannels, playbackdevID, freqS, window, items);
 
         % Write data to file
@@ -97,103 +103,6 @@ function visual_naming(subject, practice, startblock)
 
 end
     
-
-function data = task_block(trials, reps, recID, freqR, nrchannels, playbackID, freqS, window, items)
-% function that generates the data for a block of trials
-% trials is the structure of stimuli organized by items
-% reps is the number of times the stim set is repeated in the block
-% recID is the device ID number of the recording device detected by
-% psychtoolbox with a recording sampling frequency freqR recorded through
-% the number of channels indicated by nrchannels
-% playbackID is the device ID number of the sound playing device detected
-% by psychtoolbox played at a sampling rate of freqS
-% window is the psychtoolbox window created earlier
-% items is the stimuli subjects you are using (optional)
-
-    % initialize data
-    repetitions = 1;
-    StartCue = 0;
-    WaitForDeviceStart = 1;
-    data = [];
-    block = [];
-    if exist('items','var')
-        non_items = setdiff(items,fieldnames(trials));
-        trials = rmfield(trials,non_items);
-    else
-        items = fieldnames(trials); 
-    end
-
-    % Multiply, shuffle, and jitter trials
-    temp = struct2cell(trials);
-    block = repmat([temp{:}],[1,reps]); % multiply and stack
-    block = block(randperm(length(block))); % shuffle
-    for iT = 1:length(block) % jitter
-        events = fieldnames(block(iT))';
-        for i = events
-            event = i{:};
-            info = block(iT).(event);
-            if any(ismember(fieldnames(info)','jitter'))
-                info.duration = info.duration + info.jitter*rand(1,1);
-                block(iT).(event) = rmfield(info,'jitter');
-            end
-        end
-    end
-    
-    % Setup recording!
-    ifi = Screen('GetFlipInterval', window);
-%     %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
-%     pahandle2 = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
-%     
-%     % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
-%     PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
-%     
-%     %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-%     PsychPortAudio('Start', pahandle2, 0, StartCue, WaitForDeviceStart);
-    
-    % play tone!
-    tone500=audioread([userpath '/../../psychtoolbox_scripts/tone500_3.wav']);
-    % tone500=.5*tone500;
-    pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels,0, 0.015);
-    % PsychPortAudio('Volume', pahandle, 1); % volume
-    PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
-    PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-    PsychPortAudio('Volume', pahandle, 0.5);
-    toneTimeSecs = (freqS+length(tone500))./freqS; %max(cat(1,length(kig),length(pob)))./freqS;
-    toneTimeFrames = ceil(toneTimeSecs / ifi);
-    for i=1:toneTimeFrames
-        
-        DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
-        % Flip to the screen
-        Screen('Flip', window);
-    end
-    %
-    %while ~kbCheck
-    suggestedLatencySecs = 0.015;
-    waitframes = ceil((2 * suggestedLatencySecs) / ifi) + 1;
-    prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT,NASGU>
-    postlat = PsychPortAudio('LatencyBias', pahandle);
-    Priority(2);
-
-    % loop through trials
-    for iT = 1:length(block)
-        trial = block(iT);
-        % generate trial data
-        data(iT) = task_trial(trial, window);
-    end
-    % Break Screen
-    Screen('TextSize', window, 50);
-    while ~KbCheck
-        % Sleep one millisecond after each check, so we don't
-        % overload the system in Rush or Priority > 0
-        % Set the text size
- 
-        DrawFormattedText(window, 'Take a short break and press any key to continue', 'center', 'center', [1 1 1]);
-        % Flip to the screen
-        Screen('Flip', window);
-        WaitSecs(0.001);
-    end
-end
-
 function trials = genTrials(stimuli, conditions, events)
 % Takes a set of stimuli with varying modalities and conditions and 
 % assembles them into a full set of all possible trials 
@@ -233,18 +142,120 @@ function trials = genTrials(stimuli, conditions, events)
     end    
 end
 
+function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, playbackID, freqS, window, items)
+% function that generates the data for a block of trials
+% trials is the structure of stimuli organized by items
+% reps is the number of times the stim set is repeated in the block
+% recID is the device ID number of the recording device detected by
+% psychtoolbox with a recording sampling frequency freqR recorded through
+% the number of channels indicated by nrchannels
+% playbackID is the device ID number of the sound playing device detected
+% by psychtoolbox played at a sampling rate of freqS
+% window is the psychtoolbox window created earlier
+% items is the stimuli subjects you are using (optional)
+
+    % initialize data
+    repetitions = 1;
+    StartCue = 0;
+    WaitForDeviceStart = 1;
+    rec = 0;
+    data = struct();
+    if exist('items','var')
+        non_items = setdiff(items,fieldnames(trials));
+        trials = rmfield(trials,non_items);
+    end
+
+    % Multiply, shuffle, and jitter trials
+    temp = struct2cell(trials);
+    block = repmat([temp{:}],[1,reps]); % multiply and stack
+    block = block(randperm(length(block))); % shuffle
+    for iT = 1:length(block) % jitter
+        events = fieldnames(block(iT))';
+        for i = events
+            event = i{:};
+            info = block(iT).(event);
+            if any(ismember(fieldnames(info)','jitter'))
+                info.duration = info.duration + info.jitter*rand(1,1);
+                block(iT).(event) = rmfield(info,'jitter');
+            end
+        end
+    end
+
+    if rec == 1
+        % Setup recording!
+        %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
+        pahandle2 = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
+        
+        % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
+        PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
+        
+        %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
+        PsychPortAudio('Start', pahandle2, 0, StartCue, WaitForDeviceStart);
+    end
+
+    ifi = Screen('GetFlipInterval', window);
+    % play tone!
+    tone500=audioread([userpath '/../../psychtoolbox_scripts/tone500_3.wav']);
+    % tone500=.5*tone500;
+    pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels,0, 0.015);
+    % PsychPortAudio('Volume', pahandle, 1); % volume
+    PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
+    PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
+    PsychPortAudio('Volume', pahandle, 0.5);
+    toneTimeSecs = (freqS+length(tone500))./freqS; %max(cat(1,length(kig),length(pob)))./freqS;
+    toneTimeFrames = ceil(toneTimeSecs / ifi);
+    for i=1:toneTimeFrames
+        
+        DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+        % Flip to the screen
+        Screen('Flip', window);
+    end
+    %
+    %while ~kbCheck
+    suggestedLatencySecs = 0.015;
+    waitframes = ceil((2 * suggestedLatencySecs) / ifi) + 1;
+    prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT,NASGU>
+    postlat = PsychPortAudio('LatencyBias', pahandle);
+    Priority(2);
+
+    % loop through trials
+    for iT = 1:length(block)
+        if pause_script(window)
+            PsychPortAudio('close');
+            sca;
+            return;
+        end
+        trial = block(iT);
+        % generate trial data
+        data(iT) = task_trial(trial, window);
+        data(iT).block = blockNum;
+    end
+    % Break Screen
+    Screen('TextSize', window, 50);
+    while ~KbCheck
+        % Sleep one millisecond after each check, so we don't
+        % overload the system in Rush or Priority > 0
+        % Set the text size
+ 
+        DrawFormattedText(window, 'Take a short break and press any key to continue', 'center', 'center', [1 1 1]);
+        % Flip to the screen
+        Screen('Flip', window);
+        WaitSecs(0.001);
+    end
+end
 
 function data = task_trial(trial_struct, window)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
+    ifi = Screen('GetFlipInterval', window);
     events = fielednames(trial_struct);
+    data = struct();
     for i = events
-        event = i{:};
-        info = trial_struct.(event);
-        if strcmp(info.duration, {'sound','audio'})
-            info.duration = info.duration;
-        end
+        event = lower(i{:});
+        duration = trial_struct.(i{:}).duration;
+        frames = ceil(duration/ifi);
+        data.(event)
     end
 end
 
