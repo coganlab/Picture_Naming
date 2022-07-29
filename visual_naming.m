@@ -10,7 +10,10 @@ function visual_naming(subject, practice, startblock)
 %   2. Stimuli
 %   3. Go
 %   4. Response
-
+    
+    if ispc
+        Screen('Preference', 'SkipSyncTests', 1);
+    end
     sca;
     soundDir = 'Stimuli/sounds/';
     imgDir = 'Stimuli/pictures/';
