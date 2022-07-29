@@ -61,7 +61,7 @@ function visual_naming(subject, practice, startblock)
 
     numTrialsTot = length(items)*nTrials*length(conditions)...
         *length(modality)*nBlocks;
-    data = zeroes(numTrials,1);
+    data = zeros(numTrialsTot,1);
     
     % Create output folder
     c = clock;
@@ -249,7 +249,7 @@ function data = task_trial(trial_struct, window)
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
     ifi = Screen('GetFlipInterval', window);
-    events = fielednames(trial_struct);
+    events = fieldnames(trial_struct);
     data = struct();
     for i = events
         event = lower(i{:});
