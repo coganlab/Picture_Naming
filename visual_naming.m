@@ -13,6 +13,9 @@ function visual_naming(subject, practice, startblock)
     
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
+        playbackdevID = 0;
+    else
+        playbackdevID = 3; % 4 for usb amp, 3 without
     end
     sca;
     soundDir = 'Stimuli/sounds/';
@@ -43,7 +46,6 @@ function visual_naming(subject, practice, startblock)
     nrchannels = 1;
     freqS = 44100;
     freqR = 20000;
-    playbackdevID = 3; % 4 for usb amp, 3 without
     capturedevID = 1; % 2 for usb amp, 1 without
     baseCircleDiam=75;
     event = struct( ...
@@ -198,7 +200,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
 
     ifi = Screen('GetFlipInterval', window);
     % play tone!
-    tone500=audioread([userpath '/../../psychtoolbox_scripts/tone500_3.wav']);
+    tone500=audioread(fullfile('Stimuli', 'tone500_3.wav'));
     % tone500=.5*tone500;
     pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels,0, 0.015);
     % PsychPortAudio('Volume', pahandle, 1); % volume
@@ -254,7 +256,7 @@ function data = task_trial(trial_struct, window)
     ifi = Screen('GetFlipInterval', window);
     events = fieldnames(trial_struct);
     data = struct();
-    for i = events
+    for i = events'
         event = lower(i{:});
         duration = trial_struct.(i{:}).duration;
         frames = ceil(duration/ifi);
