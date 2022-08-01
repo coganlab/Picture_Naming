@@ -32,17 +32,26 @@ function visual_naming(subject, practice, startblock)
     stimuli = struct();
     conditions = {'Repeat',':=:'};
     modality = {'text','image','sound'};
-    for i = 1:length(imgfiles) % items (5)
-        text = imgfiles{i}(1:end-4);
+    if practice==1
+        items = {'apple.PNG','spoon.PNG'}; % 2 items
+        nBlocks = 1;
+        fileSuff = '_Pract';
+    else
+        items = imgfiles;
+        fileSuff = '';
+    end
+
+    for i = 1:length(items) % items (5)
+        text = items{i}(1:end-4);
         stimuli(i).text = text;
-        stimuli(i).image = imread([imgDir imgfiles{i}]);
+        stimuli(i).image = imread([imgDir items{i}],'png');
         [stimuli(i).sound, Fs] = audioread([soundDir stimuli(i).text '.wav']);
         stimuli(i).duration = length(stimuli(i).sound)/Fs;
     end
     
     % Initialize values
     nBlocks = 4; 
-    nTrials = 20; % real number is nTrials X items X 6
+    nTrials = 1; % real number is nTrials X items X 6
     nrchannels = 1;
     freqS = 44100;
     freqR = 20000;
@@ -55,19 +64,18 @@ function visual_naming(subject, practice, startblock)
         'Response', struct('duration',3,'jitter',0.25));
 
     trials = genTrials(stimuli, conditions, event);
-    
-    if practice==1
-        items = {'apple','spoon'}; % 2 items
-        nBlocks = 1;
-        fileSuff = '_Pract';
-    else
-        items = fieldnames(trials);
-    end
 
     numTrialsTot = length(items)*nTrials*length(conditions)...
         *length(modality)*nBlocks;
-    data = zeros(numTrialsTot,1);
-    
+    data = struct();
+    for i=fieldnames(event)'
+        ev = lower(i{:});
+        data.([ev 'Start']) = zeros(1,numTrialsTot);
+        data.([ev 'End']) = zeros(1,numTrialsTot);
+    end
+    data.block = zeros(1,numTrialsTot);
+    data.stim = zeros(1,numTrialsTot);
+
     % Create output folder
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
@@ -99,11 +107,10 @@ function visual_naming(subject, practice, startblock)
         % Run block and collect data
         n = numTrialsTot/nBlocks;
         ind = (1:n)+(n*(iB-1));
-        data(ind,1) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
-            nrchannels, playbackdevID, freqS, window, items);
-
+        data(ind) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
+            nrchannels, playbackdevID, freqS, window);
         % Write data to file
-        save([subjectDir '/' iB],"data",'-mat')
+        save(fullfile(subjectDir, [sprintf('%s',iB) fileSuff]),"data",'-mat')
     end
 
 end
@@ -139,15 +146,15 @@ function trials = genTrials(stimuli, conditions, events)
                 end
                 trial.Stimuli.modality = modality{k};
                 trial.Stimuli.item = text;
-                trial.Go.stimuli = "Go";
-                trial.Response.stimuli = "";
+                trial.Go.stimuli = 'Go';
+                trial.Response.stimuli = '';
                 trials(k+3*(j-1)).(text) = trial;
             end
         end
     end    
 end
 
-function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, playbackID, freqS, window, items)
+function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, playbackID, freqS, window)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
 % reps is the number of times the stim set is repeated in the block
@@ -164,11 +171,6 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     StartCue = 0;
     WaitForDeviceStart = 1;
     rec = 0;
-    data = struct();
-    if exist('items','var')
-        non_items = setdiff(items,fieldnames(trials));
-        trials = rmfield(trials,non_items);
-    end
 
     % Multiply, shuffle, and jitter trials
     temp = struct2cell(trials);
@@ -232,7 +234,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
         end
         trial = block(iT);
         % generate trial data
-        data(iT) = task_trial(trial, window);
+        data(iT) = task_trial(trial, window, pahandle, waitframes);
         data(iT).block = blockNum;
     end
     % Break Screen
@@ -249,18 +251,53 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     end
 end
 
-function data = task_trial(trial_struct, window)
+function data = task_trial(trial_struct, window, pahandle, waitframes)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
     ifi = Screen('GetFlipInterval', window);
     events = fieldnames(trial_struct);
     data = struct();
+    data.block = 0; % placeholder for assignment outside of function
+    % image presentation rectangles
+    smImSq = [0 0 500 500];
+    rect = Screen('rect',window);
+    [smallIm, ~, ~] = CenterRect(smImSq, rect);
     for i = events'
         event = lower(i{:});
-        duration = trial_struct.(i{:}).duration;
-        frames = ceil(duration/ifi);
-        data.(event)
+        data.([event 'Start']) = GetSecs;
+        stage = trial_struct.(i{:});
+        frames = ceil(stage.duration/ifi);
+        stim = stage.stimuli;
+        if ischar(stim)
+            func = @DrawFormattedText;
+            inp = {window, stim, 'center', 'center', [1 1 1]};
+            data.stim = stim;
+        elseif any(strcmp(stage.modality, {'sound', 'audio'}))
+            DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+            PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
+            tWhen = GetSecs + (waitframes - 0.5)*ifi;
+            tPredictedVisualOnset = PredictVisualOnsetForTime(window, tWhen);
+            tStop = tPredictedVisualOnset + stage.duration;
+            data.([event 'Start']) = PsychPortAudio('Start', pahandle, 1, 0, 1);
+            func = @DrawFormattedText;
+            inp = {window, '', 'center', 'center', [1 1 1]};
+            data.stim = [stage.item '.wav'];
+        elseif any(strcmp(stage.modality, {'image', 'picture'}))
+            texture = Screen('MakeTexture',window,stim);
+            func=@Screen;
+            inp = {'DrawTexture', window, texture, [], smallIm};
+            data.stim = [stage.item '.PNG'];
+        else
+            error("Trial struct %s not formatted correctly",event)
+        end
+
+        % Run Trial
+        for j = 1:frames
+            func(inp{:});
+            Screen('Flip', window);
+        end
+        data.([event 'End']) = GetSecs;
     end
 end
 
