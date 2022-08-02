@@ -16,7 +16,7 @@ function visual_naming(subject, practice, startblock)
     nrchannels = 1;
     freqS = 44100;
     freqR = 20000;
-    capturedevID = 1; % 2 for usb amp, 1 without
+    [playbackdevID,capturedevID] = getDevices;
     baseCircleDiam=75;
     event = struct( ...
         'Cue', struct('duration',2,'jitter',0.25), ...
@@ -25,9 +25,6 @@ function visual_naming(subject, practice, startblock)
         'Response', struct('duration',3,'jitter',0.25));
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
-        playbackdevID = 0;
-    else
-        playbackdevID = 3; % 4 for usb amp, 3 without
     end
     conditions = {'Repeat',':=:'};
     modality = {'text','image','sound'};
@@ -109,7 +106,7 @@ function visual_naming(subject, practice, startblock)
         data(ind) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
             nrchannels, playbackdevID, freqS, window);
         % Write data to file
-        save(fullfile(subjectDir, [sprintf('%d',iB) fileSuff '.mat']),"data",'-mat')
+        save(fullfile(subjectDir, [subject sprintf('%d',iB) fileSuff '.mat']),"data",'-mat')
         Screen('TextSize', window, 50);
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
@@ -257,6 +254,18 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
         data(iT) = task_trial(trial, window, pahandle, waitframes);
         data(iT).block = blockNum;
     end
+    
+    Priority(0);
+    if rec == 1
+        [audiodata offset overflow tCaptureStart] = PsychPortAudio('GetAudioData', pahandle2);
+        filename = ([subject '_Block_' num2str(blockNum) fileSuff '_AllTrials.wav']);
+        audiowrite([subjectDir '/' filename],audiodata,freqR);
+        PsychPortAudio('Stop', pahandle2);
+        PsychPortAudio('Close', pahandle2);
+    end
+    
+    PsychPortAudio('Stop', pahandle);
+    PsychPortAudio('Close', pahandle);
 end
 
 function data = task_trial(trial_struct, window, pahandle, waitframes)
@@ -313,7 +322,6 @@ function window = init_psychtoolbox(baseCircleDiam)
 
     % Initialize Sounddriver
     InitializePsychSound(1);
-    
 
     % Screen Setup
     PsychDefaultSetup(2);
