@@ -42,7 +42,7 @@ function visual_naming(subject, practice, startblock)
     imgfiles = imgfiles(3:end);
     if practice==1
         items = {'apple.PNG','spoon.PNG'}; % 2 items
-        nBlocks = 2;
+        nBlocks = 1;
         fileSuff = '_Pract';
     else
         items = imgfiles;
@@ -225,7 +225,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     % PsychPortAudio('Volume', pahandle, 1); % volume
     PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
     PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-    PsychPortAudio('Volume', pahandle, 0.5);
+    PsychPortAudio('Volume', pahandle, 3);
     toneTimeSecs = (freqS+length(tone500))./freqS; %max(cat(1,length(kig),length(pob)))./freqS;
     toneTimeFrames = ceil(toneTimeSecs / ifi);
     for i=1:toneTimeFrames
@@ -236,9 +236,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     end
     %
     %while ~kbCheck
-    suggestedLatencySecs = 0.015;
-    waitframes = ceil((2 * suggestedLatencySecs) / ifi) + 1;
-    prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT,NASGU>
+    prelat = PsychPortAudio('LatencyBias', pahandle, 0);
     postlat = PsychPortAudio('LatencyBias', pahandle);
     Priority(2);
 
@@ -251,7 +249,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
         end
         trial = block(iT);
         % generate trial data
-        data(iT) = task_trial(trial, window, pahandle, waitframes);
+        data(iT) = task_trial(trial, window, pahandle, postlat);
         data(iT).block = blockNum;
     end
     
@@ -268,7 +266,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     PsychPortAudio('Close', pahandle);
 end
 
-function data = task_trial(trial_struct, window, pahandle, waitframes)
+function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
@@ -280,6 +278,7 @@ function data = task_trial(trial_struct, window, pahandle, waitframes)
     smImSq = [0 0 500 400];
     rect = Screen('rect',window);
     [smallIm, ~, ~] = CenterRect(smImSq, rect);
+    waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     for i = events'
         event = lower(i{:});
         data.([event 'Start']) = GetSecs;
@@ -295,8 +294,8 @@ function data = task_trial(trial_struct, window, pahandle, waitframes)
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(window, tWhen);
-            tStop = tPredictedVisualOnset + stage.duration;
-            data.([event 'Start']) = PsychPortAudio('Start', pahandle, 1, 0, 1);
+            data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
+                1, tPredictedVisualOnset, 1);
             func = @DrawFormattedText;
             inp = {window, '', 'center', 'center', [1 1 1]};
             data.stim = [stage.item '.wav'];
