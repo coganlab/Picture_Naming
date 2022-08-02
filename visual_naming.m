@@ -110,6 +110,27 @@ function visual_naming(subject, practice, startblock)
             nrchannels, playbackdevID, freqS, window);
         % Write data to file
         save(fullfile(subjectDir, [sprintf('%d',iB) fileSuff '.mat']),"data",'-mat')
+        Screen('TextSize', window, 50);
+        if iB~=nBlocks
+            snText = 'Take a short break and press any key to continue';
+        else
+            snText = 'You are finished, great job!';
+        end
+        % Break Screen
+        while ~KbCheck
+            % Sleep one millisecond after each check, so we don't
+            % overload the system in Rush or Priority > 0
+            % Set the text size
+     
+            DrawFormattedText(window, snText, 'center', 'center', [1 1 1]);
+            % Flip to the screen
+            Screen('Flip', window);
+            WaitSecs(0.001);
+        end
+        if iB == nBlocks
+            sca
+            close all
+        end
     end
 
 end
@@ -235,18 +256,6 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
         % generate trial data
         data(iT) = task_trial(trial, window, pahandle, waitframes);
         data(iT).block = blockNum;
-    end
-    % Break Screen
-    Screen('TextSize', window, 50);
-    while ~KbCheck
-        % Sleep one millisecond after each check, so we don't
-        % overload the system in Rush or Priority > 0
-        % Set the text size
- 
-        DrawFormattedText(window, 'Take a short break and press any key to continue', 'center', 'center', [1 1 1]);
-        % Flip to the screen
-        Screen('Flip', window);
-        WaitSecs(0.001);
     end
 end
 
