@@ -11,46 +11,7 @@ function visual_naming(subject, practice, startblock)
 %   3. Go
 %   4. Response
     
-    if ispc
-        Screen('Preference', 'SkipSyncTests', 1);
-        playbackdevID = 0;
-    else
-        playbackdevID = 3; % 4 for usb amp, 3 without
-    end
-    sca;
-    soundDir = 'Stimuli/sounds/';
-    imgDir = 'Stimuli/pictures/';
-    
-    if ~exist('startblock','var')
-        startblock = 1;
-    end
-    
-    % Load the stimuli
-    imgfiles = dir(imgDir);
-    imgfiles = {imgfiles.name};
-    imgfiles = imgfiles(3:end);
-    stimuli = struct();
-    conditions = {'Repeat',':=:'};
-    modality = {'text','image','sound'};
-    if practice==1
-        items = {'apple.PNG','spoon.PNG'}; % 2 items
-        nBlocks = 1;
-        fileSuff = '_Pract';
-    else
-        items = imgfiles;
-        fileSuff = '';
-    end
-
-    for i = 1:length(items) % items (5)
-        text = items{i}(1:end-4);
-        stimuli(i).text = text;
-        stimuli(i).image = imread([imgDir items{i}],'png');
-        [stimuli(i).sound, Fs] = audioread([soundDir stimuli(i).text '.wav']);
-        stimuli(i).duration = length(stimuli(i).sound)/Fs;
-    end
-    
-    % Initialize values
-    nBlocks = 4; 
+    % Initialize value
     nTrials = 1; % real number is nTrials X items X 6
     nrchannels = 1;
     freqS = 44100;
@@ -62,6 +23,44 @@ function visual_naming(subject, practice, startblock)
         'Stimuli', struct('duration','sound'), ...
         'Go', struct('duration',1,'jitter',0.25), ...
         'Response', struct('duration',3,'jitter',0.25));
+    if ispc
+        Screen('Preference', 'SkipSyncTests', 1);
+        playbackdevID = 0;
+    else
+        playbackdevID = 3; % 4 for usb amp, 3 without
+    end
+    conditions = {'Repeat',':=:'};
+    modality = {'text','image','sound'};
+    soundDir = 'Stimuli/sounds/';
+    imgDir = 'Stimuli/pictures/';
+    sca;
+    
+    if ~exist('startblock','var')
+        startblock = 1;
+    end
+    
+    % Load the stimuli
+    imgfiles = dir(imgDir);
+    imgfiles = {imgfiles.name};
+    imgfiles = imgfiles(3:end);
+    if practice==1
+        items = {'apple.PNG','spoon.PNG'}; % 2 items
+        nBlocks = 2;
+        fileSuff = '_Pract';
+    else
+        items = imgfiles;
+        nBlocks = 4; 
+        fileSuff = '';
+    end
+
+    stimuli = struct();
+    for i = 1:length(items) % items (5)
+        text = items{i}(1:end-4);
+        stimuli(i).text = text;
+        stimuli(i).image = imread([imgDir items{i}],'png');
+        [stimuli(i).sound, Fs] = audioread([soundDir stimuli(i).text '.wav']);
+        stimuli(i).duration = length(stimuli(i).sound)/Fs;
+    end
 
     trials = genTrials(stimuli, conditions, event);
 
@@ -110,7 +109,7 @@ function visual_naming(subject, practice, startblock)
         data(ind) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
             nrchannels, playbackdevID, freqS, window);
         % Write data to file
-        save(fullfile(subjectDir, [sprintf('%s',iB) fileSuff]),"data",'-mat')
+        save(fullfile(subjectDir, [sprintf('%d',iB) fileSuff '.mat']),"data",'-mat')
     end
 
 end
@@ -260,7 +259,7 @@ function data = task_trial(trial_struct, window, pahandle, waitframes)
     data = struct();
     data.block = 0; % placeholder for assignment outside of function
     % image presentation rectangles
-    smImSq = [0 0 500 500];
+    smImSq = [0 0 500 400];
     rect = Screen('rect',window);
     [smallIm, ~, ~] = CenterRect(smImSq, rect);
     for i = events'
