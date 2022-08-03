@@ -11,12 +11,12 @@ function visual_naming(subject, practice, startblock)
 %   3. Go
 %   4. Response
     
-    % Initialize value
+    % Initialize values
     nTrials = 1; % real number is nTrials X items X 6
     nrchannels = 1;
     freqS = 44100;
     freqR = 20000;
-    [playbackdevID,capturedevID] = getDevices;
+    [playbackdevID,capturedevID] = getDevices %#ok<NOPRT> 
     baseCircleDiam=75;
     event = struct( ...
         'Cue', struct('duration',2,'jitter',0.25), ...
@@ -63,14 +63,17 @@ function visual_naming(subject, practice, startblock)
 
     numTrialsTot = length(items)*nTrials*length(conditions)...
         *length(modality)*nBlocks;
-    data = struct();
+
+    % Set main data output
+    global trialInfo
+    trialInfo = struct();
     for i=fieldnames(event)'
         ev = lower(i{:});
-        data.([ev 'Start']) = zeros(1,numTrialsTot);
-        data.([ev 'End']) = zeros(1,numTrialsTot);
+        trialInfo.([ev 'Start']) = zeros(1,numTrialsTot);
+        trialInfo.([ev 'End']) = zeros(1,numTrialsTot);
     end
-    data.block = zeros(1,numTrialsTot);
-    data.stim = zeros(1,numTrialsTot);
+    trialInfo.block = zeros(1,numTrialsTot);
+    trialInfo.stim = cell(1,numTrialsTot);
 
     % Create output folder
     c = clock;
@@ -101,12 +104,16 @@ function visual_naming(subject, practice, startblock)
     % Block loop
     for iB=startblock:nBlocks
         % Run block and collect data
-        n = numTrialsTot/nBlocks;
-        ind = (1:n)+(n*(iB-1));
-        data(ind) = task_block(iB, trials, nTrials, capturedevID, freqR, ...
-            nrchannels, playbackdevID, freqS, window);
+        filename = fullfile(subjectDir, [subject fileSuff]);
+        try
+            task_block(iB, trials, nTrials, capturedevID, freqR, ...
+                nrchannels, playbackdevID, freqS, window, filename);
+        catch e %close PsychPortAudio if error occurs
+            PsychPortAudio('close')
+            rethrow(e)
+        end
+
         % Write data to file
-        save(fullfile(subjectDir, [subject sprintf('%d',iB) fileSuff '.mat']),"data",'-mat')
         Screen('TextSize', window, 50);
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
@@ -171,7 +178,8 @@ function trials = genTrials(stimuli, conditions, events)
     end    
 end
 
-function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, playbackID, freqS, window)
+function data = task_block(blockNum, trials, reps, recID, freqR, ...
+    nrchannels, playbackID, freqS, window, filename)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
 % reps is the number of times the stim set is repeated in the block
@@ -184,6 +192,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
 % items is the stimuli subjects you are using (optional)
 
     % initialize data
+    global trialInfo
     repetitions = 1;
     StartCue = 0;
     WaitForDeviceStart = 1;
@@ -221,7 +230,7 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
     % play tone!
     tone500=audioread(fullfile('Stimuli', 'tone500_3.wav'));
     % tone500=.5*tone500;
-    pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels,0, 0.015);
+    pahandle = PsychPortAudio('Open', playbackID, 1, 2, freqS, nrchannels, 0, 0.015);
     % PsychPortAudio('Volume', pahandle, 1); % volume
     PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
     PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
@@ -249,15 +258,16 @@ function data = task_block(blockNum, trials, reps, recID, freqR, nrchannels, pla
         end
         trial = block(iT);
         % generate trial data
-        data(iT) = task_trial(trial, window, pahandle, postlat);
-        data(iT).block = blockNum;
+        data = task_trial(trial, window, pahandle, postlat);
+        data.block = blockNum;
+        trialInfo(iT+(length(block)*(blockNum-1))) = data;
+        save([filename '.mat'],"trialInfo",'-mat')
     end
     
     Priority(0);
     if rec == 1
         [audiodata offset overflow tCaptureStart] = PsychPortAudio('GetAudioData', pahandle2);
-        filename = ([subject '_Block_' num2str(blockNum) fileSuff '_AllTrials.wav']);
-        audiowrite([subjectDir '/' filename],audiodata,freqR);
+        audiowrite([filename '_AllTrials.wav'],audiodata,freqR);
         PsychPortAudio('Stop', pahandle2);
         PsychPortAudio('Close', pahandle2);
     end
@@ -272,8 +282,8 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
 % Fs is the sampling rate of the sound (optional)
     ifi = Screen('GetFlipInterval', window);
     events = fieldnames(trial_struct);
-    data = struct();
-    data.block = 0; % placeholder for assignment outside of function
+    %data = struct();
+    %data.block = 0; % placeholder for assignment outside of function
     % image presentation rectangles
     smImSq = [0 0 500 400];
     rect = Screen('rect',window);
@@ -301,7 +311,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
             data.stim = [stage.item '.wav'];
         elseif any(strcmp(stage.modality, {'image', 'picture'}))
             texture = Screen('MakeTexture',window,stim);
-            func=@Screen;
+            func = @Screen;
             inp = {'DrawTexture', window, texture, [], smallIm};
             data.stim = [stage.item '.PNG'];
         else
