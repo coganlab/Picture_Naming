@@ -57,18 +57,12 @@ function visual_naming(subject, practice, startblock)
 
     % Set main data output
     global trialInfo
-    trialInfo = struct();
-    for i=fieldnames(events)'
-        ev = lower(i{:});
-        trialInfo.([ev 'Start']) = deal([]);
-        trialInfo.([ev 'End']) = deal([]);
-    end
-    trialInfo.block = deal([]);
-    trialInfo.stim = deal([]);
+    trialInfo = {};
 
     % Create output folder
     c = clock;
-    subjectDir = fullfile('data', [subject '_' num2str(c(1)) num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
+    subjectDir = fullfile('data', [subject '_' num2str(c(1)) ...
+        num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
     
     if exist(subjectDir,'dir')
@@ -175,7 +169,7 @@ function data = task_block(blockNum, block, recID, freqR, ...
     PsychPortAudio('FillBuffer', pahandle, 0.005*tone500');
     PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
     PsychPortAudio('Volume', pahandle, 3);
-    toneTimeSecs = (freqS+length(tone500))./freqS; %max(cat(1,length(kig),length(pob)))./freqS;
+    toneTimeSecs = (freqS+length(tone500))./freqS; 
     toneTimeFrames = ceil(toneTimeSecs / ifi);
     for i=1:toneTimeFrames
         
@@ -196,17 +190,18 @@ function data = task_block(blockNum, block, recID, freqR, ...
             sca;
             return;
         end
-        trial = block(iT);
+        trial = block{iT};
         % generate trial data
         data = task_trial(trial, window, pahandle, postlat);
         data.block = blockNum;
-        trialInfo(iT+(length(block)*(blockNum-1))) = data;
+        trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
     end
     
     Priority(0);
     if rec == 1
-        [audiodata offset overflow tCaptureStart] = PsychPortAudio('GetAudioData', pahandle2);
+        [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
+            'GetAudioData', pahandle2);
         audiowrite([filename '_AllTrials.wav'],audiodata,freqR);
         PsychPortAudio('Stop', pahandle2);
         PsychPortAudio('Close', pahandle2);
@@ -236,23 +231,23 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
         frames = ceil(stage.duration/ifi);
         stim = stage.shows;
         if ischar(stim)
-            func = @DrawFormattedText;
-            inp = {window, stim, 'center', 'center', [1 1 1]};
+            func = @() DrawFormattedText(window, stim, 'center', ...
+                'center', [1 1 1]);
             data.stim = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
-            tPredictedVisualOnset = PredictVisualOnsetForTime(window, tWhen);
+            tPredictedVisualOnset = PredictVisualOnsetForTime(window, ...
+                tWhen);
             data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
                 1, tPredictedVisualOnset, 1);
-            func = @DrawFormattedText;
-            inp = {window, '', 'center', 'center', [1 1 1]};
+            func = @() DrawFormattedText(window, '', 'center', ...
+                'center', [1 1 1]);
             data.stim = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',window,stim);
-            func = @Screen;
-            inp = {'DrawTexture', window, texture, [], smallIm};
+            func = @() Screen('DrawTexture', window, texture, [], smallIm);
             data.stim = [stage.item '.PNG'];
         else
             error("Trial struct %s not formatted correctly",event)
@@ -260,7 +255,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
 
         % Run Trial
         for j = 1:frames
-            func(inp{:});
+            func();
             Screen('Flip', window);
         end
         data.([event 'End']) = GetSecs;

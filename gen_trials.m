@@ -44,9 +44,11 @@ function block = gen_trials(template, repetitions, shuffle)
     fnames = string(fieldnames(template)');
     trials = permute_struct(template);
     sound_len = struct();
+    block = cell(length(trials),1);
 
     % apply the options according to description
     for iT = 1:length(trials)
+        block{iT} = struct();
         for name = fnames
             event = trials(iT).(name);
             opt = string(fieldnames(event)');
@@ -62,9 +64,7 @@ function block = gen_trials(template, repetitions, shuffle)
                         "unequal comparisons")
                 end
                 if trialcond(trials(iT))
-                    event = struct();
-                    event.duration = 0;
-                    event.shows = '';
+                    continue
                 else 
                     event = rmfield(event,'skip');
                 end
@@ -90,30 +90,30 @@ function block = gen_trials(template, repetitions, shuffle)
                 event.type = 'text';
             end
 
-            trials(iT).(name) = event;
+            block{iT}.(name) = event;
         end
     end
     
     % Multiply, shuffle, and jitter trials
-    block = repmat(trials,1,repetitions); % multiply and stack
+    block = repmat(block,1,repetitions); % multiply and stack
     if shuffle
         block = block(randperm(length(block))); % shuffle
     end
 
     for iT = 1:length(block)
-        for name = fnames
-            info = block(iT).(name);
+        for name = string(fieldnames(block{iT})')
+            info = block{iT}.(name);
 
             % apply jitter
             if any(ismember(fieldnames(info)','jitter'))
                 info.duration = info.duration + info.jitter*rand(1,1);
-                block(iT).(name) = rmfield(info,'jitter');
+                block{iT}.(name) = rmfield(info,'jitter');
             end
 
             % Check for 'sound' option
             if strcmp(info.duration, 'sound')
-                item = block(iT).Stimuli.item;
-                block(iT).(name).duration = sound_len.(item);
+                item = block{iT}.Stimuli.item;
+                block{iT}.(name).duration = sound_len.(item);
             end
         end
     end
