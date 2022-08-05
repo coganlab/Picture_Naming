@@ -17,8 +17,9 @@ function block = gen_trials(template, repetitions, shuffle)
 %   to each trial duration between the number given and 0
 %   'shows' is an optional substructure field that indicates either image
 %   or sound file to be played or text to be displayed
-%   'skip' is an optional substructure field that takes a string conditional
-%   statement and skips the current event if the condition is fulfilled
+%   'skip' is an optional substructure field that takes a string 
+%   conditional statement and skips the current event if the condition is
+%   fulfilled
 %
 % repetitions (optional) indicates the number of times each trial is
 % repeated. Default is 1.
@@ -26,12 +27,17 @@ function block = gen_trials(template, repetitions, shuffle)
 % shuffle (optional) is a logical that determines whether or not to 
 % randomize the order of the trials. Default is 1.
 %
-% output trials should be multiplied, shuffled, jittered
+% output trials should be multiplied, shuffled, and jittered. Wtih the
+% exception of the required 'Stimuli' event, output events should only have
+% the fields 'duration' and 'shows'. 'Stimuli' will also have the fields
+% 'type' and 'item'. Any 'shows' values that were files will be converted
+% to MATLAB audio/image data.
 
-    if ~exists('repetitions','var')
+    
+    if ~exist('repetitions','var')
         repetitions = 1;
     end
-    if ~exists('shuffle','var')
+    if ~exist('shuffle','var')
         shuffle = 1;
     end
     
@@ -52,7 +58,8 @@ function block = gen_trials(template, repetitions, shuffle)
                     trialcond = str2func("@(trial) isequal(trial." ...
                         + elem(1) + "," + elem(end) + ")");
                 else
-                    error("Function does not currently support unequal comparisons")
+                    error("Function does not currently support " + ...
+                        "unequal comparisons")
                 end
                 if trialcond(trials(iT))
                     event = struct();
@@ -100,7 +107,7 @@ function block = gen_trials(template, repetitions, shuffle)
             % apply jitter
             if any(ismember(fieldnames(info)','jitter'))
                 info.duration = info.duration + info.jitter*rand(1,1);
-                block(iT).(event) = rmfield(info,'jitter');
+                block(iT).(name) = rmfield(info,'jitter');
             end
 
             % Check for 'sound' option

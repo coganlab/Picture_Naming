@@ -16,68 +16,60 @@ function visual_naming(subject, practice, startblock)
     nrchannels = 1;
     freqS = 44100;
     freqR = 20000;
-    [playbackdevID,capturedevID] = getDevices %#ok<NOPRT> 
+    [playbackdevID,capturedevID] = getDevices;
     baseCircleDiam=75;
-    event = struct( ...
-        'Cue', struct('duration',2,'jitter',0.25), ...
-        'Stimuli', struct('duration','sound'), ...
-        'Go', struct('duration',1,'jitter',0.25), ...
-        'Response', struct('duration',3,'jitter',0.25));
+    soundDir = "Stimuli" + filesep + "sounds" + filesep;
+    imgDir = "Stimuli" + filesep + "pictures" + filesep;
+    conditions = {'Listen',':=:'};
+    
+    if practice==1
+        items = ["apple" "duck"]; % 2 items
+        nBlocks = 1;
+        fileSuff = '_Pract';
+    else
+        items = ["apple" "duck" "spoon" "star" "umbrella"];
+        nBlocks = 4; 
+        fileSuff = '';
+    end
+    
+    stims = cellstr([ ...
+        items, ... % text
+        imgDir+items+".PNG", ... % picture
+        soundDir+items+".wav" ... % sound
+        ]);
+
+    events = struct( ...
+        'Cue', struct('duration',2,'jitter',0.25,'shows',conditions), ...
+        'Stimuli', struct('duration','sound','shows',stims), ...
+        'Delay', struct('duration',2,'jitter',0.25), ...
+        'Go', struct('duration',1,'jitter',0.25,'shows','Speak','skip',"Cue.shows == ':=:'"), ...
+        'Response', struct('duration',3,'jitter',0.25,'skip',"Cue.shows == ':=:'"));
+
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
     end
-    conditions = {'Repeat',':=:'};
-    modality = {'text','image','sound'};
-    soundDir = 'Stimuli/sounds/';
-    imgDir = 'Stimuli/pictures/';
+
     sca;
     
     if ~exist('startblock','var')
         startblock = 1;
     end
-    
-    % Load the stimuli
-    imgfiles = dir(imgDir);
-    imgfiles = {imgfiles.name};
-    imgfiles = imgfiles(3:end);
-    if practice==1
-        items = {'apple.PNG','spoon.PNG'}; % 2 items
-        nBlocks = 1;
-        fileSuff = '_Pract';
-    else
-        items = imgfiles;
-        nBlocks = 4; 
-        fileSuff = '';
-    end
-
-    stimuli = struct();
-    for i = 1:length(items) % items (5)
-        text = items{i}(1:end-4);
-        stimuli(i).text = text;
-        stimuli(i).image = imread([imgDir items{i}],'png');
-        [stimuli(i).sound, Fs] = audioread([soundDir stimuli(i).text '.wav']);
-        stimuli(i).duration = length(stimuli(i).sound)/Fs;
-    end
-
-    trials = genTrials(stimuli, conditions, event);
-
-    numTrialsTot = length(items)*nTrials*length(conditions)...
-        *length(modality)*nBlocks;
 
     % Set main data output
     global trialInfo
     trialInfo = struct();
-    for i=fieldnames(event)'
+    for i=fieldnames(events)'
         ev = lower(i{:});
-        trialInfo.([ev 'Start']) = zeros(1,numTrialsTot);
-        trialInfo.([ev 'End']) = zeros(1,numTrialsTot);
+        trialInfo.([ev 'Start']) = deal([]);
+        trialInfo.([ev 'End']) = deal([]);
     end
-    trialInfo.block = zeros(1,numTrialsTot);
-    trialInfo.stim = cell(1,numTrialsTot);
+    trialInfo.block = deal([]);
+    trialInfo.stim = deal([]);
 
     % Create output folder
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
+    filename = fullfile(subjectDir, [subject fileSuff]);
     
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
@@ -104,10 +96,14 @@ function visual_naming(subject, practice, startblock)
     % Block loop
     for iB=startblock:nBlocks
         % Run block and collect data
-        filename = fullfile(subjectDir, [subject fileSuff]);
+        
+        % Generate, Multiply, shuffle, and jitter trials
+        trials = gen_trials(events, nTrials);
+
+        % run task block
         try
-            task_block(iB, trials, nTrials, capturedevID, freqR, ...
-                nrchannels, playbackdevID, freqS, window, filename);
+            task_block(iB, trials, capturedevID, freqR, nrchannels,...
+                playbackdevID, freqS, window, filename);
         catch e %close PsychPortAudio if error occurs
             PsychPortAudio('close')
             rethrow(e)
@@ -139,50 +135,10 @@ function visual_naming(subject, practice, startblock)
 
 end
     
-function trials = genTrials(stimuli, conditions, events)
-% Takes a set of stimuli with varying modalities and conditions and 
-% assembles them into a full set of all possible trials 
-% 
-% Stimuli is a structure where the fieldnames correspond to modalities
-%   Accepted modalities include
-%   ('text','letters','image','picture','sound','audio')
-%   Audio modalities require an additional 'duration' field name
-% Conditions is a cell array of possible instruction conditions
-% Events is a structure with field names corresponding to event names, and
-% a substructure with the required 'duration' field name filled with either
-% an integer (for how many seconds) or the corresponding audio modality
-% name to make the duration be the length of the audio file. A 'jitter'
-% field may also be included for random jittering of timing.
-    trials = struct();
-    pot_modality = {'text','letters','image','picture','sound','audio'};
-    modality = fieldnames(stimuli);
-    modality = modality(ismember(fieldnames(stimuli),pot_modality));
-
-    for i = 1:length(stimuli) % items (5)
-        text = stimuli(i).text;
-        for j=1:length(conditions) % conditions (2)
-            for k = 1:length(modality) % modality (3)
-                trial = events;
-                trial.Cue.stimuli = conditions{j};
-                trial.Stimuli.stimuli = stimuli(i).(modality{k});
-                if ismember(trial.Stimuli.duration, {'sound','audio'})
-                    trial.Stimuli.duration = stimuli(i).duration;
-                end
-                trial.Stimuli.modality = modality{k};
-                trial.Stimuli.item = text;
-                trial.Go.stimuli = 'Go';
-                trial.Response.stimuli = '';
-                trials(k+3*(j-1)).(text) = trial;
-            end
-        end
-    end    
-end
-
-function data = task_block(blockNum, trials, reps, recID, freqR, ...
+function data = task_block(blockNum, block, recID, freqR, ...
     nrchannels, playbackID, freqS, window, filename)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
-% reps is the number of times the stim set is repeated in the block
 % recID is the device ID number of the recording device detected by
 % psychtoolbox with a recording sampling frequency freqR recorded through
 % the number of channels indicated by nrchannels
@@ -197,22 +153,6 @@ function data = task_block(blockNum, trials, reps, recID, freqR, ...
     StartCue = 0;
     WaitForDeviceStart = 1;
     rec = 0;
-
-    % Multiply, shuffle, and jitter trials
-    temp = struct2cell(trials);
-    block = repmat([temp{:}],[1,reps]); % multiply and stack
-    block = block(randperm(length(block))); % shuffle
-    for iT = 1:length(block) % jitter
-        events = fieldnames(block(iT))';
-        for i = events
-            event = i{:};
-            info = block(iT).(event);
-            if any(ismember(fieldnames(info)','jitter'))
-                info.duration = info.duration + info.jitter*rand(1,1);
-                block(iT).(event) = rmfield(info,'jitter');
-            end
-        end
-    end
 
     if rec == 1
         % Setup recording!
@@ -294,12 +234,12 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
         data.([event 'Start']) = GetSecs;
         stage = trial_struct.(i{:});
         frames = ceil(stage.duration/ifi);
-        stim = stage.stimuli;
+        stim = stage.shows;
         if ischar(stim)
             func = @DrawFormattedText;
             inp = {window, stim, 'center', 'center', [1 1 1]};
             data.stim = stim;
-        elseif any(strcmp(stage.modality, {'sound', 'audio'}))
+        elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
@@ -309,7 +249,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
             func = @DrawFormattedText;
             inp = {window, '', 'center', 'center', [1 1 1]};
             data.stim = [stage.item '.wav'];
-        elseif any(strcmp(stage.modality, {'image', 'picture'}))
+        elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',window,stim);
             func = @Screen;
             inp = {'DrawTexture', window, texture, [], smallIm};
@@ -326,6 +266,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
         data.([event 'End']) = GetSecs;
     end
 end
+
 
 function window = init_psychtoolbox(baseCircleDiam)
 
