@@ -20,7 +20,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75;
     soundDir = "Stimuli" + filesep + "sounds" + filesep;
     imgDir = "Stimuli" + filesep + "pictures" + filesep;
-    conditions = {'Listen',':=:'};
+    conditions = {imgDir + "circle_green.png", imgDir + "circle_red.png"};
     
     if practice==1
         items = ["apple" "duck"]; % 2 items
@@ -42,8 +42,10 @@ function visual_naming(subject, practice, startblock)
         'Cue', struct('duration',2,'jitter',0.25,'shows',conditions), ...
         'Stimuli', struct('duration','sound','shows',stims), ...
         'Delay', struct('duration',2,'jitter',0.25), ...
-        'Go', struct('duration',1,'jitter',0.25,'shows','Speak','skip',"Cue.shows == ':=:'"), ...
-        'Response', struct('duration',3,'jitter',0.25,'skip',"Cue.shows == ':=:'"));
+        'Go', struct('duration',1,'jitter',0.25,'shows','Speak', ...
+            'skip',"Cue.shows == '" + conditions{2} + "'"), ...
+        'Response', struct('duration',3,'jitter',0.25, ...
+            'skip',"Cue.shows == '" + conditions{2} + "'"));
 
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
@@ -217,12 +219,8 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
 % Fs is the sampling rate of the sound (optional)
     ifi = Screen('GetFlipInterval', window);
     events = fieldnames(trial_struct);
-    %data = struct();
-    %data.block = 0; % placeholder for assignment outside of function
+
     % image presentation rectangles
-    smImSq = [0 0 500 400];
-    rect = Screen('rect',window);
-    [smallIm, ~, ~] = CenterRect(smImSq, rect);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     for i = events'
         event = lower(i{:});
@@ -247,7 +245,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
             data.stim = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',window,stim);
-            func = @() Screen('DrawTexture', window, texture, [], smallIm);
+            func = @() Screen('DrawTexture', window, texture, []);
             data.stim = [stage.item '.PNG'];
         else
             error("Trial struct %s not formatted correctly",event)
