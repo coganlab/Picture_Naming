@@ -76,7 +76,7 @@ function visual_naming(subject, practice, startblock)
     end
     
     % ready psychtoolbox
-    window = init_psychtoolbox(baseCircleDiam);
+    [window, centeredCircle] = init_psychtoolbox(baseCircleDiam);
 
     % Ready Loop
     while ~KbCheck
@@ -99,7 +99,7 @@ function visual_naming(subject, practice, startblock)
         % run task block
         try
             task_block(iB, trials, capturedevID, freqR, nrchannels,...
-                playbackdevID, freqS, window, filename);
+                playbackdevID, freqS, window, filename, centeredCircle);
         catch e %close PsychPortAudio if error occurs
             PsychPortAudio('close')
             rethrow(e)
@@ -132,7 +132,7 @@ function visual_naming(subject, practice, startblock)
 end
     
 function data = task_block(blockNum, block, recID, freqR, ...
-    nrchannels, playbackID, freqS, window, filename)
+    nrchannels, playbackID, freqS, window, filename, centeredCircle)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
 % recID is the device ID number of the recording device detected by
@@ -194,7 +194,7 @@ function data = task_block(blockNum, block, recID, freqR, ...
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, window, pahandle, postlat);
+        data = task_trial(trial, window, pahandle, postlat, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
@@ -213,7 +213,7 @@ function data = task_block(blockNum, block, recID, freqR, ...
     PsychPortAudio('Close', pahandle);
 end
 
-function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
+function data = task_trial(trial_struct, window, pahandle, postLatencySecs, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
@@ -252,6 +252,9 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
         end
 
         % Run Trial
+        if strcmp(event, "stimuli")
+            Screen('FillOval', window, [1,1,1], centeredCircle, 75);
+        end
         for j = 1:frames
             func();
             Screen('Flip', window);
@@ -261,7 +264,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
 end
 
 
-function window = init_psychtoolbox(baseCircleDiam)
+function [window, centeredCircle] = init_psychtoolbox(baseCircleDiam)
 
     % Initialize Sounddriver
     InitializePsychSound(1);
