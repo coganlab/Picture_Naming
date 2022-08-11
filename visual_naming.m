@@ -174,7 +174,8 @@ function [pahandle, rechandle] = audio_init(win, playbackID,...
     end
     %
     %while ~kbCheck
-    prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT> 
+    prelat = PsychPortAudio('LatencyBias', pahandle, 0);
+    disp("Preatency is " + num2str(prelat))
     Priority(2);
 end
 
@@ -208,8 +209,7 @@ function data = task_block(blockNum, block, pahandle, win, filename, ...
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         % write audio data
         if pahandle2 ~= 0
-            [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
-            'GetAudioData', pahandle2);
+            [audiodata,~,~,~] = PsychPortAudio('GetAudioData', pahandle2);
             status = PsychPortAudio('GetStatus', pahandle);
             audioname = str(filename)+"_Block_"+num2str(blockNum)+".wav";
             audiowrite(audioname,audiodata,status.SampleRate);
@@ -240,7 +240,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         if ischar(stim)
             func = @() DrawFormattedText(win, stim, 'center', ...
                 'center', [1 1 1]);
-            data.stim = stim;
+            stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
@@ -251,11 +251,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
                 1, tPredictedVisualOnset, 1);
             func = @() DrawFormattedText(win, '', 'center', ...
                 'center', [1 1 1]);
-            data.stim = [stage.item '.wav'];
+            stimmy = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
-            data.stim = [stage.item '.PNG'];
+            stimmy = [stage.item '.PNG'];
         else
             error("Trial struct %s not formatted correctly",event)
         end
@@ -263,6 +263,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         % Run Trial
         if strcmp(event, "stimuli")
             Screen('FillOval', win, [1,1,1], centeredCircle, 75);
+            data.stim = stimmy;
         end
         for j = 1:frames
             func();
