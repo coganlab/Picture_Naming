@@ -18,9 +18,13 @@ function visual_naming(subject, practice, startblock)
     freqR = 20000;
     [playbackdevID,capturedevID] = getDevices;
     baseCircleDiam=75;
+    StartCue = 0;
+    WaitForDeviceStart = 1;
+    rec = 0;
     soundDir = "Stimuli" + filesep + "sounds" + filesep;
     imgDir = "Stimuli" + filesep + "pictures" + filesep;
     conditions = {imgDir + "circle_green.png", imgDir + "circle_red.png"};
+    rng('shuffle');
     
     if practice==1
         items = ["apple" "duck"]; % 2 items
@@ -58,7 +62,7 @@ function visual_naming(subject, practice, startblock)
     end
 
     % Set main data output
-    global trialInfo
+    global trialInfo %#ok<GVMIS> 
     trialInfo = {};
 
     % Create output folder
@@ -91,28 +95,32 @@ function visual_naming(subject, practice, startblock)
 
     % Block loop
     for iB=startblock:nBlocks
-        % Run block and collect data
         
         % Generate, Multiply, shuffle, and jitter trials
         trials = gen_trials(events, nTrials);
 
-        % run task block
         try
-            task_block(iB, trials, capturedevID, freqR, nrchannels,...
-                playbackdevID, freqS, window, filename, centeredCircle);
+            % Initialize audio devices
+            [pahandle, rechandle] = audio_init(window, playbackdevID, ...
+                freqS, nrchannels, StartCue, WaitForDeviceStart, rec, ...
+                capturedevID, freqR);
+               
+            % run task block
+            task_block(iB, trials, pahandle, window, filename, ...
+                centeredCircle, rechandle);
         catch e %close PsychPortAudio if error occurs
             PsychPortAudio('close')
             rethrow(e)
         end
+        PsychPortAudio('close')
 
-        % Write data to file
+        % Break Screen
         Screen('TextSize', window, 50);
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
         else
             snText = 'You are finished, great job!';
         end
-        % Break Screen
         while ~KbCheck
             % Sleep one millisecond after each check, so we don't
             % overload the system in Rush or Priority > 0
@@ -128,38 +136,24 @@ function visual_naming(subject, practice, startblock)
             close all
         end
     end
-
 end
     
-function data = task_block(blockNum, block, recID, freqR, ...
-    nrchannels, playbackID, freqS, window, filename, centeredCircle)
-% function that generates the data for a block of trials
-% trials is the structure of stimuli organized by items
-% recID is the device ID number of the recording device detected by
-% psychtoolbox with a recording sampling frequency freqR recorded through
-% the number of channels indicated by nrchannels
-% playbackID is the device ID number of the sound playing device detected
-% by psychtoolbox played at a sampling rate of freqS
-% window is the psychtoolbox window created earlier
-% items is the stimuli subjects you are using (optional)
+function [pahandle, rechandle] = audio_init(window, playbackID, freqS, ...
+    nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
 
-    % initialize data
-    global trialInfo
     repetitions = 1;
-    StartCue = 0;
-    WaitForDeviceStart = 1;
-    rec = 0;
-
-    if rec == 1
+    if ~exist('rec','var') || rec == 0
+        rechandle = 0;
+    else
         % Setup recording!
         %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
-        pahandle2 = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
+        rechandle = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
         
         % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
-        PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
+        PsychPortAudio('GetAudioData', rechandle, 9000); %nTrials
         
         %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-        PsychPortAudio('Start', pahandle2, 0, StartCue, WaitForDeviceStart);
+        PsychPortAudio('Start', rechandle, 0, StartCue, WaitForDeviceStart);
     end
 
     ifi = Screen('GetFlipInterval', window);
@@ -181,9 +175,25 @@ function data = task_block(blockNum, block, recID, freqR, ...
     end
     %
     %while ~kbCheck
-    prelat = PsychPortAudio('LatencyBias', pahandle, 0);
-    postlat = PsychPortAudio('LatencyBias', pahandle);
+    prelat = PsychPortAudio('LatencyBias', pahandle, 0) %#ok<NOPRT> 
     Priority(2);
+end
+
+
+function data = task_block(blockNum, block, pahandle, window, filename, ...
+    centeredCircle, pahandle2)
+% function that generates the data for a block of trials
+% trials is the structure of stimuli organized by items
+% recID is the device ID number of the recording device detected by
+% psychtoolbox with a recording sampling frequency freqR recorded through
+% the number of channels indicated by nrchannels
+% playbackID is the device ID number of the sound playing device detected
+% by psychtoolbox played at a sampling rate of freqS
+% window is the psychtoolbox window created earlier
+% items is the stimuli subjects you are using (optional)
+
+    % initialize data
+    global trialInfo %#ok<GVMIS> 
 
     % loop through trials
     for iT = 1:length(block)
@@ -194,26 +204,24 @@ function data = task_block(blockNum, block, recID, freqR, ...
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, window, pahandle, postlat, centeredCircle);
+        data = task_trial(trial, window, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
+        % write audio data
+        if pahandle2 ~= 0
+            [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
+            'GetAudioData', pahandle2);
+            status = PsychPortAudio('GetStatus', pahandle);
+            audiowrite([filename '_AllTrials.wav'],audiodata,status.SampleRate);
+        end
     end
     
     Priority(0);
-    if rec == 1
-        [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
-            'GetAudioData', pahandle2);
-        audiowrite([filename '_AllTrials.wav'],audiodata,freqR);
-        PsychPortAudio('Stop', pahandle2);
-        PsychPortAudio('Close', pahandle2);
-    end
-    
-    PsychPortAudio('Stop', pahandle);
-    PsychPortAudio('Close', pahandle);
+
 end
 
-function data = task_trial(trial_struct, window, pahandle, postLatencySecs, centeredCircle)
+function data = task_trial(trial_struct, window, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
@@ -221,6 +229,7 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs, cent
     events = fieldnames(trial_struct);
 
     % image presentation rectangles
+    postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     for i = events'
         event = lower(i{:});
