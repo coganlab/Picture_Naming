@@ -80,16 +80,16 @@ function visual_naming(subject, practice, startblock)
     end
     
     % ready psychtoolbox
-    [window, centeredCircle] = init_psychtoolbox(baseCircleDiam);
+    [win, centeredCircle] = init_psychtoolbox(baseCircleDiam);
 
     % Ready Loop
     while ~KbCheck
-        DrawFormattedText(window, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
+        DrawFormattedText(win, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
         
         % Sleep one millisecond after each check, so we don't
         % overload the system in Rush or Priority > 0
         % Flip to the screen
-        Screen('Flip', window);
+        Screen('Flip', win);
         WaitSecs(0.001);
     end
 
@@ -101,12 +101,12 @@ function visual_naming(subject, practice, startblock)
 
         try
             % Initialize audio devices
-            [pahandle, rechandle] = audio_init(window, playbackdevID, ...
+            [pahandle, rechandle] = audio_init(win, playbackdevID, ...
                 freqS, nrchannels, StartCue, WaitForDeviceStart, rec, ...
                 capturedevID, freqR);
                
             % run task block
-            task_block(iB, trials, pahandle, window, filename, ...
+            task_block(iB, trials, pahandle, win, filename, ...
                 centeredCircle, rechandle);
         catch e %close PsychPortAudio if error occurs
             PsychPortAudio('close')
@@ -115,7 +115,7 @@ function visual_naming(subject, practice, startblock)
         PsychPortAudio('close')
 
         % Break Screen
-        Screen('TextSize', window, 50);
+        Screen('TextSize', win, 50);
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
         else
@@ -126,9 +126,9 @@ function visual_naming(subject, practice, startblock)
             % overload the system in Rush or Priority > 0
             % Set the text size
      
-            DrawFormattedText(window, snText, 'center', 'center', [1 1 1]);
+            DrawFormattedText(win, snText, 'center', 'center', [1 1 1]);
             % Flip to the screen
-            Screen('Flip', window);
+            Screen('Flip', win);
             WaitSecs(0.001);
         end
         if iB == nBlocks
@@ -138,7 +138,7 @@ function visual_naming(subject, practice, startblock)
     end
 end
     
-function [pahandle, rechandle] = audio_init(window, playbackID, freqS, ...
+function [pahandle, rechandle] = audio_init(win, playbackID, freqS, ...
     nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
 
     repetitions = 1;
@@ -156,7 +156,7 @@ function [pahandle, rechandle] = audio_init(window, playbackID, freqS, ...
         PsychPortAudio('Start', rechandle, 0, StartCue, WaitForDeviceStart);
     end
 
-    ifi = Screen('GetFlipInterval', window);
+    ifi = Screen('GetFlipInterval', win);
     % play tone!
     tone500=audioread(fullfile('Stimuli', 'tone500_3.wav'));
     % tone500=.5*tone500;
@@ -169,9 +169,9 @@ function [pahandle, rechandle] = audio_init(window, playbackID, freqS, ...
     toneTimeFrames = ceil(toneTimeSecs / ifi);
     for i=1:toneTimeFrames
         
-        DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+        DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
         % Flip to the screen
-        Screen('Flip', window);
+        Screen('Flip', win);
     end
     %
     %while ~kbCheck
@@ -180,7 +180,7 @@ function [pahandle, rechandle] = audio_init(window, playbackID, freqS, ...
 end
 
 
-function data = task_block(blockNum, block, pahandle, window, filename, ...
+function data = task_block(blockNum, block, pahandle, win, filename, ...
     centeredCircle, pahandle2)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
@@ -197,14 +197,14 @@ function data = task_block(blockNum, block, pahandle, window, filename, ...
 
     % loop through trials
     for iT = 1:length(block)
-        if pause_script(window)
+        if pause_script(win)
             PsychPortAudio('close');
             sca;
             return;
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, window, pahandle, centeredCircle);
+        data = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
@@ -221,11 +221,11 @@ function data = task_block(blockNum, block, pahandle, window, filename, ...
 
 end
 
-function data = task_trial(trial_struct, window, pahandle, centeredCircle)
+function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
-    ifi = Screen('GetFlipInterval', window);
+    ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
     % image presentation rectangles
@@ -238,23 +238,23 @@ function data = task_trial(trial_struct, window, pahandle, centeredCircle)
         frames = ceil(stage.duration/ifi);
         stim = stage.shows;
         if ischar(stim)
-            func = @() DrawFormattedText(window, stim, 'center', ...
+            func = @() DrawFormattedText(win, stim, 'center', ...
                 'center', [1 1 1]);
             data.stim = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
-            DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+            DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
-            tPredictedVisualOnset = PredictVisualOnsetForTime(window, ...
+            tPredictedVisualOnset = PredictVisualOnsetForTime(win, ...
                 tWhen);
             data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
                 1, tPredictedVisualOnset, 1);
-            func = @() DrawFormattedText(window, '', 'center', ...
+            func = @() DrawFormattedText(win, '', 'center', ...
                 'center', [1 1 1]);
             data.stim = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
-            texture = Screen('MakeTexture',window,stim);
-            func = @() Screen('DrawTexture', window, texture, []);
+            texture = Screen('MakeTexture',win,stim);
+            func = @() Screen('DrawTexture', win, texture, []);
             data.stim = [stage.item '.PNG'];
         else
             error("Trial struct %s not formatted correctly",event)
@@ -262,18 +262,18 @@ function data = task_trial(trial_struct, window, pahandle, centeredCircle)
 
         % Run Trial
         if strcmp(event, "stimuli")
-            Screen('FillOval', window, [1,1,1], centeredCircle, 75);
+            Screen('FillOval', win, [1,1,1], centeredCircle, 75);
         end
         for j = 1:frames
             func();
-            Screen('Flip', window);
+            Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
     end
 end
 
 
-function [window, centeredCircle] = init_psychtoolbox(baseCircleDiam)
+function [win, centeredCircle] = init_psychtoolbox(baseCircleDiam)
 
     % Initialize Sounddriver
     InitializePsychSound(1);
@@ -290,16 +290,16 @@ function [window, centeredCircle] = init_psychtoolbox(baseCircleDiam)
     white = WhiteIndex(screenNumber);
     grey = white / 2;
     % Open an on screen window and color it grey
-    [window, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
+    [win, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
 
     % Set the blend funnction for the screen
-    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+    Screen('BlendFunction', win, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     % Get the size of the on screen window in pixels
-    [screenXpixels, screenYpixels] = Screen('WindowSize', window);
+    [screenXpixels, screenYpixels] = Screen('WindowSize', win);
     % Get the centre coordinate of the window in pixels
     [xCenter, yCenter] = RectCenter(windowRect);
     % Set the text size
-    Screen('TextSize', window, 50);
+    Screen('TextSize', win, 50);
 
     % Circle stuff for photodiode
     baseCircle = [0 0 baseCircleDiam baseCircleDiam];
