@@ -206,7 +206,6 @@ function data = task_block(blockNum, block, pahandle, win, filename, ...
         data = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
-        save([filename '.mat'],"trialInfo",'-mat')
         % write audio data
         if pahandle2 ~= 0
             [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
@@ -215,6 +214,7 @@ function data = task_block(blockNum, block, pahandle, win, filename, ...
             audioname = str(filename)+"_Block_"+num2str(blockNum)+".wav";
             audiowrite(audioname,audiodata,status.SampleRate);
         end
+        save([filename '.mat'],"trialInfo",'-mat')
     end
     
     Priority(0);
