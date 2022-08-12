@@ -18,9 +18,13 @@ function visual_naming(subject, practice, startblock)
     freqR = 20000;
     [playbackdevID,capturedevID] = getDevices;
     baseCircleDiam=75;
+    StartCue = 0;
+    WaitForDeviceStart = 1;
+    rec = 0;
     soundDir = "Stimuli" + filesep + "sounds" + filesep;
     imgDir = "Stimuli" + filesep + "pictures" + filesep;
     conditions = {imgDir + "circle_green.png", imgDir + "circle_red.png"};
+    rng('shuffle');
     
     if practice==1
         items = ["apple" "duck"]; % 2 items
@@ -40,7 +44,7 @@ function visual_naming(subject, practice, startblock)
 
     events = struct( ...
         'Cue', struct('duration',2,'jitter',0.25,'shows',conditions), ...
-        'Stimuli', struct('duration','sound','shows',stims), ...
+        'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',2,'jitter',0.25), ...
         'Go', struct('duration',1,'jitter',0.25,'shows','Speak', ...
             'skip',"Cue.shows == '" + conditions{2} + "'"), ...
@@ -58,7 +62,7 @@ function visual_naming(subject, practice, startblock)
     end
 
     % Set main data output
-    global trialInfo
+    global trialInfo %#ok<GVMIS> 
     trialInfo = {};
 
     % Create output folder
@@ -76,51 +80,55 @@ function visual_naming(subject, practice, startblock)
     end
     
     % ready psychtoolbox
-    window = init_psychtoolbox(baseCircleDiam);
+    [win, centeredCircle] = init_psychtoolbox(baseCircleDiam);
 
     % Ready Loop
     while ~KbCheck
-        DrawFormattedText(window, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
+        DrawFormattedText(win, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
         
         % Sleep one millisecond after each check, so we don't
         % overload the system in Rush or Priority > 0
         % Flip to the screen
-        Screen('Flip', window);
+        Screen('Flip', win);
         WaitSecs(0.001);
     end
 
     % Block loop
     for iB=startblock:nBlocks
-        % Run block and collect data
         
         % Generate, Multiply, shuffle, and jitter trials
         trials = gen_trials(events, nTrials);
 
-        % run task block
         try
-            task_block(iB, trials, capturedevID, freqR, nrchannels,...
-                playbackdevID, freqS, window, filename);
+            % Initialize audio devices
+            [pahandle, rechandle] = audio_init(win, ...
+                playbackdevID, freqS, nrchannels, StartCue, ...
+                WaitForDeviceStart, rec, capturedevID, freqR);
+               
+            % run task block
+            task_block(iB, trials, pahandle, win, filename, ...
+                centeredCircle, rechandle);
         catch e %close PsychPortAudio if error occurs
             PsychPortAudio('close')
             rethrow(e)
         end
+        PsychPortAudio('close')
 
-        % Write data to file
-        Screen('TextSize', window, 50);
+        % Break Screen
+        Screen('TextSize', win, 50);
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
         else
             snText = 'You are finished, great job!';
         end
-        % Break Screen
         while ~KbCheck
             % Sleep one millisecond after each check, so we don't
             % overload the system in Rush or Priority > 0
             % Set the text size
      
-            DrawFormattedText(window, snText, 'center', 'center', [1 1 1]);
+            DrawFormattedText(win, snText, 'center', 'center', [1 1 1]);
             % Flip to the screen
-            Screen('Flip', window);
+            Screen('Flip', win);
             WaitSecs(0.001);
         end
         if iB == nBlocks
@@ -128,41 +136,26 @@ function visual_naming(subject, practice, startblock)
             close all
         end
     end
-
 end
     
-function data = task_block(blockNum, block, recID, freqR, ...
-    nrchannels, playbackID, freqS, window, filename)
-% function that generates the data for a block of trials
-% trials is the structure of stimuli organized by items
-% recID is the device ID number of the recording device detected by
-% psychtoolbox with a recording sampling frequency freqR recorded through
-% the number of channels indicated by nrchannels
-% playbackID is the device ID number of the sound playing device detected
-% by psychtoolbox played at a sampling rate of freqS
-% window is the psychtoolbox window created earlier
-% items is the stimuli subjects you are using (optional)
+function [pahandle, rechandle] = audio_init(win, playbackID,...
+    freqS, nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
 
-    % initialize data
-    global trialInfo
     repetitions = 1;
-    StartCue = 0;
-    WaitForDeviceStart = 1;
-    rec = 0;
-
-    if rec == 1
+    if ~exist('rec','var') || rec == 0
+        rechandle = 0;
+    else
         % Setup recording!
         %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
-        pahandle2 = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
-        
+        rechandle = PsychPortAudio('Open', recID, 2, 0, freqR, nrchannels,0, 0.015);
         % Preallocate an internal audio recording  buffer with a capacity of 10 seconds:
-        PsychPortAudio('GetAudioData', pahandle2, 9000); %nTrials
+        PsychPortAudio('GetAudioData', rechandle, 9000); %nTrials
         
         %PsychPortAudio('Start', pahandle, repetitions, StartCue, WaitForDeviceStart);
-        PsychPortAudio('Start', pahandle2, 0, StartCue, WaitForDeviceStart);
+        PsychPortAudio('Start', rechandle, 0, StartCue, WaitForDeviceStart);
     end
 
-    ifi = Screen('GetFlipInterval', window);
+    ifi = Screen('GetFlipInterval', win);
     % play tone!
     tone500=audioread(fullfile('Stimuli', 'tone500_3.wav'));
     % tone500=.5*tone500;
@@ -175,52 +168,68 @@ function data = task_block(blockNum, block, recID, freqR, ...
     toneTimeFrames = ceil(toneTimeSecs / ifi);
     for i=1:toneTimeFrames
         
-        DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+        DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
         % Flip to the screen
-        Screen('Flip', window);
+        Screen('Flip', win);
     end
     %
     %while ~kbCheck
     prelat = PsychPortAudio('LatencyBias', pahandle, 0);
-    postlat = PsychPortAudio('LatencyBias', pahandle);
+    disp("Preatency is " + num2str(prelat))
     Priority(2);
+end
+
+
+function data = task_block(blockNum, block, pahandle, win, filename, ...
+    centeredCircle, pahandle2)
+% function that generates the data for a block of trials
+% trials is the structure of stimuli organized by items
+% recID is the device ID number of the recording device detected by
+% psychtoolbox with a recording sampling frequency freqR recorded through
+% the number of channels indicated by nrchannels
+% playbackID is the device ID number of the sound playing device detected
+% by psychtoolbox played at a sampling rate of freqS
+% window is the psychtoolbox window created earlier
+% items is the stimuli subjects you are using (optional)
+
+    % initialize data
+    global trialInfo %#ok<GVMIS> 
 
     % loop through trials
     for iT = 1:length(block)
-        if pause_script(window)
+        if pause_script(win)
             PsychPortAudio('close');
             sca;
             return;
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, window, pahandle, postlat);
+        data = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
+        % write audio data
+        if pahandle2 ~= 0
+            [audiodata,~,~,~] = PsychPortAudio('GetAudioData', pahandle2);
+            status = PsychPortAudio('GetStatus', pahandle);
+            audioname = str(filename)+"_Block_"+num2str(blockNum)+".wav";
+            audiowrite(audioname,audiodata,status.SampleRate);
+        end
         save([filename '.mat'],"trialInfo",'-mat')
     end
     
     Priority(0);
-    if rec == 1
-        [audiodata offset overflow tCaptureStart] = PsychPortAudio( ...
-            'GetAudioData', pahandle2);
-        audiowrite([filename '_AllTrials.wav'],audiodata,freqR);
-        PsychPortAudio('Stop', pahandle2);
-        PsychPortAudio('Close', pahandle2);
-    end
-    
-    PsychPortAudio('Stop', pahandle);
-    PsychPortAudio('Close', pahandle);
+
 end
 
-function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
+function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
 % Fs is the sampling rate of the sound (optional)
-    ifi = Screen('GetFlipInterval', window);
+    ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
     % image presentation rectangles
+    postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     for i = events'
         event = lower(i{:});
@@ -229,39 +238,43 @@ function data = task_trial(trial_struct, window, pahandle, postLatencySecs)
         frames = ceil(stage.duration/ifi);
         stim = stage.shows;
         if ischar(stim)
-            func = @() DrawFormattedText(window, stim, 'center', ...
+            func = @() DrawFormattedText(win, stim, 'center', ...
                 'center', [1 1 1]);
-            data.stim = stim;
+            stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
-            DrawFormattedText(window, '', 'center', 'center', [1 1 1]);
+            DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
-            tPredictedVisualOnset = PredictVisualOnsetForTime(window, ...
+            tPredictedVisualOnset = PredictVisualOnsetForTime(win, ...
                 tWhen);
             data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
                 1, tPredictedVisualOnset, 1);
-            func = @() DrawFormattedText(window, '', 'center', ...
+            func = @() DrawFormattedText(win, '', 'center', ...
                 'center', [1 1 1]);
-            data.stim = [stage.item '.wav'];
+            stimmy = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
-            texture = Screen('MakeTexture',window,stim);
-            func = @() Screen('DrawTexture', window, texture, []);
-            data.stim = [stage.item '.PNG'];
+            texture = Screen('MakeTexture',win,stim);
+            func = @() Screen('DrawTexture', win, texture, []);
+            stimmy = [stage.item '.PNG'];
         else
             error("Trial struct %s not formatted correctly",event)
         end
 
         % Run Trial
+        if strcmp(event, "stimuli")
+            Screen('FillOval', win, [1,1,1], centeredCircle, 75);
+            data.stim = stimmy;
+        end
         for j = 1:frames
             func();
-            Screen('Flip', window);
+            Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
     end
 end
 
 
-function window = init_psychtoolbox(baseCircleDiam)
+function [win, centeredCircle] = init_psychtoolbox(baseCircleDiam)
 
     % Initialize Sounddriver
     InitializePsychSound(1);
@@ -278,16 +291,16 @@ function window = init_psychtoolbox(baseCircleDiam)
     white = WhiteIndex(screenNumber);
     grey = white / 2;
     % Open an on screen window and color it grey
-    [window, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
+    [win, windowRect] = PsychImaging('OpenWindow', screenNumber, black);
 
     % Set the blend funnction for the screen
-    Screen('BlendFunction', window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
+    Screen('BlendFunction', win, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     % Get the size of the on screen window in pixels
-    [screenXpixels, screenYpixels] = Screen('WindowSize', window);
+    [screenXpixels, screenYpixels] = Screen('WindowSize', win);
     % Get the centre coordinate of the window in pixels
     [xCenter, yCenter] = RectCenter(windowRect);
     % Set the text size
-    Screen('TextSize', window, 50);
+    Screen('TextSize', win, 50);
 
     % Circle stuff for photodiode
     baseCircle = [0 0 baseCircleDiam baseCircleDiam];
