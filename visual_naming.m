@@ -28,7 +28,7 @@ function visual_naming(subject, practice, startblock)
     
     if practice==1
         items = ["apple" "duck"]; % 2 items
-        nBlocks = 1;
+        nBlocks = 2;
         fileSuff = '_Pract';
     else
         items = ["apple" "duck" "spoon" "star" "umbrella"];
@@ -106,16 +106,22 @@ function visual_naming(subject, practice, startblock)
                 WaitForDeviceStart, rec, capturedevID, freqR);
                
             % run task block
-            task_block(iB, trials, pahandle, win, filename, ...
-                centeredCircle, rechandle);
-        catch e %close PsychPortAudio if error occurs
-            PsychPortAudio('close')
+            [~, to_exit] = task_block(iB, trials, pahandle, win, ...
+                filename, centeredCircle);
+        catch e % close and save PsychPortAudio if error occurs
+            audio_conclude(rechandle, iB, filename)
             rethrow(e)
         end
-        PsychPortAudio('close')
+        audio_conclude(rechandle, iB, filename)
+
+        % close if chose to exit
+        if to_exit
+            return
+        end
 
         % Break Screen
         Screen('TextSize', win, 50);
+        
         if iB~=nBlocks
             snText = 'Take a short break and press any key to continue';
         else
@@ -179,9 +185,19 @@ function [pahandle, rechandle] = audio_init(win, playbackID,...
     Priority(2);
 end
 
+function audio_conclude(rechandle, iB, filename)
+% write audio data if neccessary and then close the audio devices
+    if rechandle ~= 0
+        [audiodata,~,~,~] = PsychPortAudio('GetAudioData', rechandle);
+        status = PsychPortAudio('GetStatus', rechandle);
+        audioname = str(filename)+"_Block_"+num2str(iB)+".wav";
+        audiowrite(audioname,audiodata,status.SampleRate);
+    end
+    PsychPortAudio('close')
+end
 
-function data = task_block(blockNum, block, pahandle, win, filename, ...
-    centeredCircle, pahandle2)
+function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
+    filename, centeredCircle)
 % function that generates the data for a block of trials
 % trials is the structure of stimuli organized by items
 % recID is the device ID number of the recording device detected by
@@ -194,26 +210,21 @@ function data = task_block(blockNum, block, pahandle, win, filename, ...
 
     % initialize data
     global trialInfo %#ok<GVMIS> 
+    data = [];
 
     % loop through trials
     for iT = 1:length(block)
-        if pause_script(win)
+        to_exit = pause_script(win);
+        if to_exit
             PsychPortAudio('close');
             sca;
-            return;
+            return
         end
         trial = block{iT};
         % generate trial data
         data = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
-        % write audio data
-        if pahandle2 ~= 0
-            [audiodata,~,~,~] = PsychPortAudio('GetAudioData', pahandle2);
-            status = PsychPortAudio('GetStatus', pahandle);
-            audioname = str(filename)+"_Block_"+num2str(blockNum)+".wav";
-            audiowrite(audioname,audiodata,status.SampleRate);
-        end
         save([filename '.mat'],"trialInfo",'-mat')
     end
     
@@ -245,8 +256,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
-            tPredictedVisualOnset = PredictVisualOnsetForTime(win, ...
-                tWhen);
+            tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
             data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
                 1, tPredictedVisualOnset, 1);
             func = @() DrawFormattedText(win, '', 'center', ...
@@ -261,11 +271,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         end
 
         % Run Trial
-        if strcmp(event, "stimuli")
-            Screen('FillOval', win, [1,1,1], centeredCircle, 75);
-            data.stim = stimmy;
-        end
         for j = 1:frames
+            if strcmp(event, "stimuli") && j <= 3
+                Screen('FillOval', win, [1,1,1], centeredCircle, 75);
+                data.stim = stimmy;
+            end
             func();
             Screen('Flip', win);
         end
