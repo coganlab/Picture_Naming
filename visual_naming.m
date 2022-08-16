@@ -15,12 +15,12 @@ function visual_naming(subject, practice, startblock)
     nTrials = 1; % real number is nTrials X items X 6
     nrchannels = 1;
     freqS = 44100;
-    freqR = 20000;
+    freqR = 44100; % 20000 doesn't work?
     [playbackdevID,capturedevID] = getDevices;
     baseCircleDiam=75;
     StartCue = 0;
     WaitForDeviceStart = 1;
-    rec = 0;
+    rec = 1;
     soundDir = "Stimuli" + filesep + "sounds" + filesep;
     imgDir = "Stimuli" + filesep + "pictures" + filesep;
     conditions = {imgDir + "circle_green.png", imgDir + "circle_red.png"};
@@ -101,6 +101,7 @@ function visual_naming(subject, practice, startblock)
 
         try
             % Initialize audio devices
+            rechandle = NaN;
             [pahandle, rechandle] = audio_init(win, ...
                 playbackdevID, freqS, nrchannels, StartCue, ...
                 WaitForDeviceStart, rec, capturedevID, freqR);
@@ -149,7 +150,7 @@ function [pahandle, rechandle] = audio_init(win, playbackID,...
 
     repetitions = 1;
     if ~exist('rec','var') || rec == 0
-        rechandle = 0;
+        rechandle = NaN;
     else
         % Setup recording!
         %pahandle = PsychPortAudio('Open', [], 1, 1, freq, nrchannels,64);
@@ -181,16 +182,16 @@ function [pahandle, rechandle] = audio_init(win, playbackID,...
     %
     %while ~kbCheck
     prelat = PsychPortAudio('LatencyBias', pahandle, 0);
-    disp("Preatency is " + num2str(prelat))
+    disp("Prelatency is " + num2str(prelat))
     Priority(2);
 end
 
 function audio_conclude(rechandle, iB, filename)
 % write audio data if neccessary and then close the audio devices
-    if rechandle ~= 0
+    if ~isnan(rechandle)
         [audiodata,~,~,~] = PsychPortAudio('GetAudioData', rechandle);
         status = PsychPortAudio('GetStatus', rechandle);
-        audioname = str(filename)+"_Block_"+num2str(iB)+".wav";
+        audioname = filename+"_Block_"+num2str(iB)+".wav";
         audiowrite(audioname,audiodata,status.SampleRate);
     end
     PsychPortAudio('close')
@@ -271,6 +272,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         end
 
         % Run Trial
+        Screen('TextSize', win, 100);
         for j = 1:frames
             if strcmp(event, "stimuli") && j <= 3
                 Screen('FillOval', win, [1,1,1], centeredCircle, 75);
