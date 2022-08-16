@@ -54,13 +54,14 @@ function visual_naming(subject, practice, startblock)
         soundDir+items+".wav"]); % sound
 
     events = struct( ...
-        'Cue', struct('duration',1,'jitter',0.25,'shows',conditions), ...
+        'Cue', struct('duration',0.75,'jitter',0.25,'shows',conditions), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',2,'jitter',0.25), ...
         'Go', struct('duration',0.75,'jitter',0.25,'shows','Speak', ...
             'skip',"Cue.shows == '" + conditions{2} + "'"), ...
         'Response', struct('duration',3,'jitter',0.25, ...
-            'skip',"Cue.shows == '" + conditions{2} + "'"));
+            'skip',"Cue.shows == '" + conditions{2} + "'"),...
+        'iti', struct('duration',0.25,'jitter',0.25));
 
     %% Set main data output
     global trialInfo 
@@ -93,7 +94,7 @@ function visual_naming(subject, practice, startblock)
         % Flip to the screen
         Screen('Flip', win);
         WaitSecs(0.001);
-    end
+     end
 
     %% Block loop
     for iB=startblock:nBlocks
@@ -194,8 +195,8 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         frames = round(stage.duration/ifi);
         stim = stage.shows;
         if ischar(stim)
-            func = @() DrawFormattedText(win, stim, 'center', ...
-                'center', [1 1 1]);
+            func = @() DrawFormattedText(win, stim, 'center', 'center',...
+                [1 1 1]);
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
@@ -213,8 +214,8 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 
             data.([event 'Start']) = status.StartTime;
             data.([event 'AlignedTrigger']) = trigFlipOn;
-            func = @() DrawFormattedText(win, '', 'center', ...
-                'center', [1 1 1]);
+            func = @() DrawFormattedText(win, '', 'center', 'center',...
+                [1 1 1]);
             stimmy = [stage.item '.wav'];
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',win,stim);
@@ -228,7 +229,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         Screen('TextSize', win, 100);
         for j = 1:frames
             if strcmp(event, "stimuli") && j <= 3
-                Screen('FillOval', win, [1,1,1], centeredCircle, 75);
+                Screen('FillOval', win, [1,1,1], centeredCircle);
                 data.stim = stimmy;
             end
             func();
