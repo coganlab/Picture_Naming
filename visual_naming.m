@@ -17,6 +17,7 @@ function visual_naming(subject, practice, startblock)
     freqS = 44100;
     freqR = 44100; % 20000 doesn't work?
     [playbackdevID,capturedevID] = getDevices;
+    toneVol = 0.08;
     baseCircleDiam=75;
     StartCue = 0;
     WaitForDeviceStart = 1;
@@ -28,7 +29,7 @@ function visual_naming(subject, practice, startblock)
     
     if practice==1
         items = ["apple" "duck"]; % 2 items
-        nBlocks = 2;
+        nBlocks = 1;
         fileSuff = '_Pract';
     else
         items = ["apple" "duck" "spoon" "star" "umbrella"];
@@ -43,10 +44,10 @@ function visual_naming(subject, practice, startblock)
         ]);
 
     events = struct( ...
-        'Cue', struct('duration',2,'jitter',0.25,'shows',conditions), ...
+        'Cue', struct('duration',1,'jitter',0.25,'shows',conditions), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',2,'jitter',0.25), ...
-        'Go', struct('duration',1,'jitter',0.25,'shows','Speak', ...
+        'Go', struct('duration',0.75,'jitter',0.25,'shows','Speak', ...
             'skip',"Cue.shows == '" + conditions{2} + "'"), ...
         'Response', struct('duration',3,'jitter',0.25, ...
             'skip',"Cue.shows == '" + conditions{2} + "'"));
@@ -105,7 +106,12 @@ function visual_naming(subject, practice, startblock)
             [pahandle, rechandle] = audio_init(win, ...
                 playbackdevID, freqS, nrchannels, StartCue, ...
                 WaitForDeviceStart, rec, capturedevID, freqR);
-               
+%         catch e
+%             PsychPortAudio('Close')
+%             rethrow(e)
+%         end
+%                
+%         try
             % run task block
             [~, to_exit] = task_block(iB, trials, pahandle, win, ...
                 filename, centeredCircle);
@@ -117,6 +123,7 @@ function visual_naming(subject, practice, startblock)
 
         % close if chose to exit
         if to_exit
+            close all;
             return
         end
 
@@ -217,7 +224,6 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
     for iT = 1:length(block)
         to_exit = pause_script(win);
         if to_exit
-            PsychPortAudio('close');
             sca;
             return
         end
@@ -258,8 +264,18 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
-            data.([event 'Start']) = PsychPortAudio('Start', pahandle, ...
-                1, tPredictedVisualOnset, 1);
+            PsychPortAudio('Start', pahandle, ...
+                1, tPredictedVisualOnset, 0);
+            [~,trigFlipOn] = Screen('Flip', win, tWhen);
+            offset = 0;
+            while offset == 0
+                status = PsychPortAudio('GetStatus', pahandle);
+                offset = status.PositionSecs;
+                WaitSecs('YieldSecs', 0.001);
+            end
+
+            data.([event 'Start']) = status.StartTime;
+            data.([event 'AlignedTrigger']) = trigFlipOn;
             func = @() DrawFormattedText(win, '', 'center', ...
                 'center', [1 1 1]);
             stimmy = [stage.item '.wav'];
