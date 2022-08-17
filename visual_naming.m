@@ -184,6 +184,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
     global events_out
+    global trialInfo
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
@@ -241,7 +242,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         data.([event 'End']) = GetSecs;
 
         % BIDS output stuff
-        events_out()
+        j = length(events_out)+1;
+        events_out(j,'onset') = data.([event 'Start']);
+        events_out(j,'duration') = data.([event 'End']) - data.([event 'Start']);
+        events_out(j,'trial_num') = length(trialInfo);
+
     end
 end
 
