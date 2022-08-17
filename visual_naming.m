@@ -246,7 +246,9 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         events_out(j,'onset') = data.([event 'Start']);
         events_out(j,'duration') = data.([event 'End']) - data.([event 'Start']);
         events_out(j,'trial_num') = length(trialInfo);
-
+        events_out(j,'trial_type') = event;
+        events_out(j,'trial_num') = stimmy;
+        events_out(j,'trial_num') = length(trialInfo)
     end
 end
 
