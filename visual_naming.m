@@ -85,16 +85,10 @@ function visual_naming(subject, practice, startblock)
     sca;
     [win, centeredCircle] = init_psychtoolbox(baseCircleDiam, 'black');
 
-    % Ready Loop
-    while ~KbCheck
-        DrawFormattedText(win, 'If you see the cue Yes/No, please say Yes for a word and No for a nonword. \nIf you see the cue Repeat, please repeat the word/nonword. \nPress any key to start. ', 'center', 'center', [1 1 1],58);
-        
-        % Sleep one millisecond after each check, so we don't
-        % overload the system in Rush or Priority > 0
-        % Flip to the screen
-        Screen('Flip', win);
-        WaitSecs(0.001);
-     end
+    % Ready
+    prompt(win, ['If you see the cue Yes/No, please say Yes for a word'...
+        ' and No for a nonword. \nIf you see the cue Repeat, please '...
+        'repeat the word/nonword. \nPress any key to start. '],58);
 
     %% Block loop
     for iB=startblock:nBlocks
@@ -113,39 +107,21 @@ function visual_naming(subject, practice, startblock)
             [~, to_exit] = task_block(iB, trials, pahandle, win, ...
                 filename, centeredCircle);
         catch e % close and save PsychPortAudio if error occurs
-            audio_conclude(rechandle, iB, filename)
+            audio_conclude(rechandle, win, iB, filename)
             rethrow(e)
         end
-        audio_conclude(rechandle, iB, filename)
+        audio_conclude(rechandle, win, iB, filename)
 
-        % close if chose to exit
-        if to_exit
-            sca;
-            close all;
-            return
-        end
-
-        % Break Screen
+        % Block end prompt
         Screen('TextSize', win, 50);
-        if iB~=nBlocks
-            snText = 'Take a short break and press any key to continue';
-        else
-            snText = 'You are finished, great job!';
-        end
-        while ~KbCheck
-            % Sleep one millisecond after each check, so we don't
-            % overload the system in Rush or Priority > 0
-            % Set the text size
-     
-            DrawFormattedText(win, snText, 'center', 'center', [1 1 1]);
-            % Flip to the screen
-            Screen('Flip', win);
-            WaitSecs(0.001);
-        end
-        if iB == nBlocks
+        if to_exit % close if chose to exit
             sca;
-            close all;
             return
+        elseif iB~=nBlocks % Break screen
+            prompt(win,'Take a short break and press any key to continue');
+        else
+            prompt(win,'You are finished, great job!');
+            sca;
         end
     end
 end
@@ -164,7 +140,6 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
     for iT = 1:length(block)
         to_exit = pause_script(win);
         if to_exit
-            sca;
             return
         end
         trial = block{iT};
@@ -236,6 +211,22 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
+    end
+end
+
+function prompt(win, message, wrap)
+    if ~exist('wrap','var')
+        wrap=[];
+    end
+    while ~KbCheck
+        % Sleep one millisecond after each check, so we don't
+        % overload the system in Rush or Priority > 0
+        % Set the text size
+
+        DrawFormattedText(win, message, 'center', 'center', [1 1 1], wrap);
+        % Flip to the screen
+        Screen('Flip', win);
+        WaitSecs(0.001);
     end
 end
 
@@ -317,16 +308,17 @@ function [pahandle, rechandle] = audio_init(win, playbackID, freqS, ...
         % Flip to the screen
         Screen('Flip', win);
     end
-    %
-    %while ~kbCheck
+
     prelat = PsychPortAudio('LatencyBias', pahandle, 0);
     disp("Prelatency is " + num2str(prelat))
     Priority(2);
 end
 
-function audio_conclude(rechandle, iB, filename)
+function audio_conclude(rechandle, win, iB, filename)
 % write audio data if neccessary and then close the audio devices
     if ~isnan(rechandle)
+        DrawFormattedText(win,'Saving...','center','center',[1 1 1]);
+        Screen('Flip', win);
         [audiodata,~,~,~] = PsychPortAudio('GetAudioData', rechandle);
         status = PsychPortAudio('GetStatus', rechandle);
         audioname = filename+"_Block_"+num2str(iB)+".wav";
