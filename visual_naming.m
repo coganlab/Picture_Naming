@@ -89,7 +89,7 @@ function visual_naming(subject, practice, startblock)
     prompt(win, char("If you see a green circle, watch/listen for an "...
         +"object and repeat the name of that object at the subsequent "...
         +"'Speak' cue. If you see a red circle, watch/listen without "...
-        +"repeating."),58);
+        +"repeating. Press any key to start. "),58);
 
     %% Block loop
     for iB=startblock:nBlocks
@@ -216,6 +216,8 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 end
 
 function prompt(win, message, wrap)
+% function that temporarily halts the experiment and gives the user a text
+% prompt. The user can continue the experiment by pressing any key.
     if ~exist('wrap','var')
         wrap=[];
     end
