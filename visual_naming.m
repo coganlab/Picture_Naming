@@ -13,7 +13,6 @@ function visual_naming(subject, practice, startblock)
 %   (2.5 Delay?)
 %   3. Go
 %   4. Response
-    
     rng('shuffle');
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
@@ -31,7 +30,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 1; % whether or not to record
+    rec = 0; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -66,6 +65,8 @@ function visual_naming(subject, practice, startblock)
     %% Set main data output
     global trialInfo 
     trialInfo = {};
+    global events_out
+    events_out = table([],[],[],[],[],[],'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"]);
 
     % Create output folder
     c = clock;
@@ -182,6 +183,7 @@ end
 function data = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
+    global events_out
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
@@ -200,6 +202,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
+            Screen('FillOval', win, [1 1 1], centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
@@ -236,6 +239,9 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
+
+        % BIDS output stuff
+        events_out()
     end
 end
 
