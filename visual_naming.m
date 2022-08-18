@@ -66,7 +66,9 @@ function visual_naming(subject, practice, startblock)
     global trialInfo 
     trialInfo = {};
     global events_out
-    events_out = table([],[],[],[],[],[],'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"]);
+        events_out = table('Size',[0, 6],...
+        'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"], ...
+        'VariableTypes',["double","double","double","string","string","double"]);
 
     % Create output folder
     c = clock;
@@ -196,11 +198,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             data.([event 'AlignedTrigger']) = trigFlipOn;
             func = @() DrawFormattedText(win, '', 'center', 'center',...
                 [1 1 1]);
-            stimmy = [stage.item '.wav'];
+            stimmy = stage.item + ".wav";
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
-            stimmy = [stage.item '.PNG'];
+            stimmy = stage.item + ".PNG";
         else
             error("Trial struct %s not formatted correctly",event)
         end
@@ -218,13 +220,13 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         data.([event 'End']) = GetSecs;
 
         % BIDS output stuff
-        j = length(events_out)+1;
-        events_out(j,'onset') = data.([event 'Start']);
-        events_out(j,'duration') = data.([event 'End']) - data.([event 'Start']);
-        events_out(j,'trial_num') = length(trialInfo);
-        events_out(j,'trial_type') = event;
-        events_out(j,'trial_num') = stimmy;
-        events_out(j,'trial_num') = length(trialInfo)
+        j = height(events_out)+1;
+        events_out(j,'onset') = {data.([event 'Start'])};
+        events_out(j,'duration') = {data.([event 'End']) - data.([event 'Start'])};
+        events_out(j,'trial_num') = {length(trialInfo)};
+        events_out(j,'trial_type') = {event};
+        events_out(j,'stim_file') = {stimmy};
+        events_out(j,'sample') = {data.([event 'Start'])*2048};
     end
 end
 
