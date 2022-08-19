@@ -20,9 +20,12 @@ function visual_naming(subject, practice, startblock)
     if ~exist('startblock','var')
         startblock = 1;
     end
+    if ~exist('practice','var')
+        practice = 0;
+    end
     
     %% Initialize values
-    nTrials = 1; % real number is nTrials X items X 6
+    nTrials = 5; % real number is nTrials X items X 6
     nrchannels = 1; % number of channels in the recording and playback devices
     freqS = 44100; % sampling frequency of the playback device
     freqR = 44100; % sampling frequency of the recording device
@@ -30,7 +33,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 0; % whether or not to record
+    rec = 1; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -41,8 +44,8 @@ function visual_naming(subject, practice, startblock)
         nBlocks = 1;
         fileSuff = '_Pract';
     else
-        items = ["apple" "duck" "spoon" "star" "umbrella"];
-        nBlocks = 4; 
+        items = ["apple" "spoon" "star" "umbrella"];
+        nBlocks = 5; 
         fileSuff = '';
     end
     
@@ -52,16 +55,20 @@ function visual_naming(subject, practice, startblock)
         imgDir+items+".PNG", ... % picture
         soundDir+items+".wav"]); % sound
 
-    events = struct( ...
-        'Cue', struct('duration',0.75,'jitter',0.25,'shows',conditions), ...
+    events1 = struct( ...
+        'Cue', struct('duration',0.5,'jitter',0.25,'shows',conditions(1)), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
-        'Delay', struct('duration',2,'jitter',0.25), ...
-        'Go', struct('duration',0.75,'jitter',0.25,'shows','Speak', ...
-            'skip',"Cue.shows == '" + conditions{2} + "'"), ...
-        'Response', struct('duration',3,'jitter',0.25, ...
-            'skip',"Cue.shows == '" + conditions{2} + "'"),...
-        'iti', struct('duration',0.25,'jitter',0.25));
+        'Delay', struct('duration',1,'jitter',0.25), ...
+        'Go', struct('duration',0.5,'jitter',0.25,'shows','Speak'), ...
+        'Response', struct('duration',1),...
+        'iti', struct('duration',0.75,'jitter',0.25));
 
+   events2 = struct( ...
+        'Cue', struct('duration',0.5,'jitter',0.25,'shows',conditions(2)), ...
+        'Stimuli', struct('duration',1,'shows',stims), ...
+        'Delay', struct('duration',1,'jitter',0.25), ...
+        'iti', struct('duration',0.75,'jitter',0.25));
+    
     %% Set main data output
     global trialInfo 
     trialInfo = {};
@@ -99,8 +106,11 @@ function visual_naming(subject, practice, startblock)
     for iB=startblock:nBlocks
         
         % Generate, Multiply, shuffle, and jitter trials
-        trials = gen_trials(events, nTrials);
-
+        trials1 = gen_trials(events1, nTrials);
+        trials2 = gen_trials(events2, ceil(nTrials/2));
+        trials = [trials1; trials2];
+        trials = trials(randperm(length(trials)));
+            
         try
             % Initialize audio devices
             rechandle = NaN;

@@ -95,7 +95,7 @@ function block = gen_trials(template, repetitions, shuffle)
     end
     
     % Multiply, shuffle, and jitter trials
-    block = repmat(block,1,repetitions); % multiply and stack
+    block = repmat(block,repetitions,1); % multiply and stack
     if shuffle
         block = block(randperm(length(block))); % shuffle
     end
