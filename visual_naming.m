@@ -25,7 +25,8 @@ function visual_naming(subject, practice, startblock)
     end
     
     %% Initialize values
-    nTrials = 5; % real number is nTrials X items X 6
+    nTrials1 = 4; % real number is nTrials X items X 6
+    nTrials2 = 3; % real number is nTrials X items X 6
     nrchannels = 1; % number of channels in the recording and playback devices
     freqS = 44100; % sampling frequency of the playback device
     freqR = 44100; % sampling frequency of the recording device
@@ -44,7 +45,7 @@ function visual_naming(subject, practice, startblock)
         nBlocks = 1;
         fileSuff = '_Pract';
     else
-        items = ["apple" "spoon" "star" "umbrella"];
+        items = ["apple" "duck" "star" "umbrella"];
         nBlocks = 5; 
         fileSuff = '';
     end
@@ -56,15 +57,17 @@ function visual_naming(subject, practice, startblock)
         soundDir+items+".wav"]); % sound
 
     events1 = struct( ...
-        'Cue', struct('duration',0.5,'jitter',0.25,'shows',conditions(1)), ...
+        'Cue', struct('duration',0.5,'shows',conditions(1)), ...
+        'Wait', struct('duration',0.5,'jitter',0.25), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',1,'jitter',0.25), ...
-        'Go', struct('duration',0.5,'jitter',0.25,'shows','Speak'), ...
+        'Go', struct('duration',0.5,'shows','Speak'), ...
         'Response', struct('duration',1),...
         'iti', struct('duration',0.75,'jitter',0.25));
 
-   events2 = struct( ...
-        'Cue', struct('duration',0.5,'jitter',0.25,'shows',conditions(2)), ...
+    events2 = struct( ...
+        'Cue', struct('duration',0.5,'shows',conditions(2)), ...
+        'Wait', struct('duration',0.5,'jitter',0.25), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',1,'jitter',0.25), ...
         'iti', struct('duration',0.75,'jitter',0.25));
@@ -72,16 +75,12 @@ function visual_naming(subject, practice, startblock)
     %% Set main data output
     global trialInfo 
     trialInfo = {};
-    events_out = table('Size',[0, 6],...
-        'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"],...
-        'VariableTypes',["double","double","double","string","string","double"]);
 
     % Create output folder/files
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) ...
         num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
-    
 
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
@@ -90,7 +89,10 @@ function visual_naming(subject, practice, startblock)
     elseif ~exist(subjectDir,'dir')
         mkdir(subjectDir)
     end
-    writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t')
+
+     % Custom tsv file
+    BIDS_out = {'onset','duration','trial_num','trial_type','stim_file','block'};
+    writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',')
     
     %% ready psychtoolbox
     sca;
@@ -106,8 +108,8 @@ function visual_naming(subject, practice, startblock)
     for iB=startblock:nBlocks
         
         % Generate, Multiply, shuffle, and jitter trials
-        trials1 = gen_trials(events1, nTrials);
-        trials2 = gen_trials(events2, ceil(nTrials/2));
+        trials1 = gen_trials(events1, nTrials1);
+        trials2 = gen_trials(events2, nTrials2);
         trials = [trials1; trials2];
         trials = trials(randperm(length(trials)));
             
@@ -162,9 +164,12 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         [data, BIDS_out] = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
-        events_out = cell2table(BIDS_out);
         save([filename '.mat'],"trialInfo",'-mat')
-        writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t','WriteMode','append','WriteVariableNames',false)
+        
+        % Set out data
+        [BIDS_out{cellfun('isempty',BIDS_out)}] = deal('n/a');
+        BIDS_out(:,6) = {blockNum};
+        writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',','WriteMode','append')
     end
     
     Priority(0);
@@ -236,7 +241,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
         j = height(events_out)+1;
         events_out(j,:) = {data.([event 'Start']), ...
             data.([event 'End']) - data.([event 'Start']), ...
-            length(trialInfo)+1, event, stimmy, data.([event 'Start'])*2048};
+            length(trialInfo)+1, event, stimmy};
     end
 end
 

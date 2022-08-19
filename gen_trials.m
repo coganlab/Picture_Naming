@@ -80,8 +80,7 @@ function block = gen_trials(template, repetitions, shuffle)
                     event.shows = imread(event.shows);
                     event.type = 'image';
                 elseif any(ismember({'.wav'},lower(ext)))
-                    [event.shows, Fs] = audioread(event.shows);
-                    event.duration = length(event.shows)/Fs;
+                    [event.shows, ~] = audioread(event.shows);
                     event.type = 'sound';
                     sound_len.(fname) = event.duration;
                 end
