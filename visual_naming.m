@@ -66,7 +66,8 @@ function visual_naming(subject, practice, startblock)
     global trialInfo 
     trialInfo = {};
     events_out = table('Size',[0, 6],...
-    'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"]);
+        'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"],...
+        'VariableTypes',["double","double","double","string","string","double"]);
 
     % Create output folder/files
     c = clock;
