@@ -74,7 +74,7 @@ function visual_naming(subject, practice, startblock)
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) ...
         num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
-    writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t')
+    
 
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
@@ -83,6 +83,7 @@ function visual_naming(subject, practice, startblock)
     elseif ~exist(subjectDir,'dir')
         mkdir(subjectDir)
     end
+    writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t')
     
     %% ready psychtoolbox
     sca;
@@ -170,6 +171,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
     % image presentation rectangles
     postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
+    events_out = {};
     for i = events'
         event = lower(i{:});
         data.([event 'Start']) = GetSecs;
@@ -221,7 +223,6 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
         data.([event 'End']) = GetSecs;
 
         % BIDS output stuff
-        events_out = {};
         j = height(events_out)+1;
         events_out(j,:) = {data.([event 'Start']), ...
             data.([event 'End']) - data.([event 'Start']), ...
