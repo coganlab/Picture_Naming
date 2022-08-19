@@ -65,17 +65,16 @@ function visual_naming(subject, practice, startblock)
     %% Set main data output
     global trialInfo 
     trialInfo = {};
-    global events_out
-        events_out = table('Size',[0, 6],...
-        'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"], ...
-        'VariableTypes',["double","double","double","string","string","double"]);
+    events_out = table('Size',[0, 6],...
+    'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"]);
 
-    % Create output folder
+    % Create output folder/files
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) ...
         num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
-    
+    writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t')
+
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
         subjectDir=strcat(subjectDir,dateTime);
@@ -148,20 +147,21 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, win, pahandle, centeredCircle);
+        [data, BIDS_out] = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
+        events_out = cell2table(BIDS_out);
         save([filename '.mat'],"trialInfo",'-mat')
+        writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t','WriteMode','append','WriteVariableNames',false)
     end
     
     Priority(0);
 
 end
 
-function data = task_trial(trial_struct, win, pahandle, centeredCircle)
+function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
-    global events_out
     global trialInfo
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
@@ -220,13 +220,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
         data.([event 'End']) = GetSecs;
 
         % BIDS output stuff
+        events_out = {};
         j = height(events_out)+1;
-        events_out(j,'onset') = {data.([event 'Start'])};
-        events_out(j,'duration') = {data.([event 'End']) - data.([event 'Start'])};
-        events_out(j,'trial_num') = {length(trialInfo)};
-        events_out(j,'trial_type') = {event};
-        events_out(j,'stim_file') = {stimmy};
-        events_out(j,'sample') = {data.([event 'Start'])*2048};
+        events_out(j,:) = {data.([event 'Start']), ...
+            data.([event 'End']) - data.([event 'Start']), ...
+            length(trialInfo)+1, event, stimmy, data.([event 'Start'])*2048};
     end
 end
 
