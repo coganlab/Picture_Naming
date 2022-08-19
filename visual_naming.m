@@ -13,7 +13,6 @@ function visual_naming(subject, practice, startblock)
 %   (2.5 Delay?)
 %   3. Go
 %   4. Response
-    
     rng('shuffle');
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
@@ -31,7 +30,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 1; % whether or not to record
+    rec = 0; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -66,13 +65,17 @@ function visual_naming(subject, practice, startblock)
     %% Set main data output
     global trialInfo 
     trialInfo = {};
+    events_out = table('Size',[0, 6],...
+        'VariableNames',["onset","duration","trial_num","trial_type","stim_file","sample"],...
+        'VariableTypes',["double","double","double","string","string","double"]);
 
-    % Create output folder
+    % Create output folder/files
     c = clock;
     subjectDir = fullfile('data', [subject '_' num2str(c(1)) ...
         num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
     
+
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
         subjectDir=strcat(subjectDir,dateTime);
@@ -80,6 +83,7 @@ function visual_naming(subject, practice, startblock)
     elseif ~exist(subjectDir,'dir')
         mkdir(subjectDir)
     end
+    writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t')
     
     %% ready psychtoolbox
     sca;
@@ -145,25 +149,29 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         end
         trial = block{iT};
         % generate trial data
-        data = task_trial(trial, win, pahandle, centeredCircle);
+        [data, BIDS_out] = task_trial(trial, win, pahandle, centeredCircle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
+        events_out = cell2table(BIDS_out);
         save([filename '.mat'],"trialInfo",'-mat')
+        writetable(events_out,[filename '.tsv'],'FileType','text','Delimiter','\t','WriteMode','append','WriteVariableNames',false)
     end
     
     Priority(0);
 
 end
 
-function data = task_trial(trial_struct, win, pahandle, centeredCircle)
+function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCircle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
+    global trialInfo
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
     % image presentation rectangles
     postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
+    events_out = {};
     for i = events'
         event = lower(i{:});
         data.([event 'Start']) = GetSecs;
@@ -176,6 +184,7 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
+            Screen('FillOval', win, [1 1 1], centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
@@ -192,11 +201,11 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             data.([event 'AlignedTrigger']) = trigFlipOn;
             func = @() DrawFormattedText(win, '', 'center', 'center',...
                 [1 1 1]);
-            stimmy = [stage.item '.wav'];
+            stimmy = stage.item + ".wav";
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
-            stimmy = [stage.item '.PNG'];
+            stimmy = stage.item + ".PNG";
         else
             error("Trial struct %s not formatted correctly",event)
         end
@@ -212,6 +221,12 @@ function data = task_trial(trial_struct, win, pahandle, centeredCircle)
             Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
+
+        % BIDS output stuff
+        j = height(events_out)+1;
+        events_out(j,:) = {data.([event 'Start']), ...
+            data.([event 'End']) - data.([event 'Start']), ...
+            length(trialInfo)+1, event, stimmy, data.([event 'Start'])*2048};
     end
 end
 
