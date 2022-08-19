@@ -25,7 +25,8 @@ function visual_naming(subject, practice, startblock)
     end
     
     %% Initialize values
-    nTrials = 5; % real number is nTrials X items X 6
+    nTrials1 = 4; % real number is nTrials X items X 6
+    nTrials2 = 3; % real number is nTrials X items X 6
     nrchannels = 1; % number of channels in the recording and playback devices
     freqS = 44100; % sampling frequency of the playback device
     freqR = 44100; % sampling frequency of the recording device
@@ -33,7 +34,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 0; % whether or not to record
+    rec = 1; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -41,7 +42,7 @@ function visual_naming(subject, practice, startblock)
     % setting up trials structure
     if practice==1
         items = ["apple" "duck"]; % 2 items
-        nBlocks = 2;
+        nBlocks = 1;
         fileSuff = '_Pract';
     else
         items = ["apple" "duck" "star" "umbrella"];
@@ -60,12 +61,13 @@ function visual_naming(subject, practice, startblock)
         'Wait', struct('duration',0.5,'jitter',0.25), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',1,'jitter',0.25), ...
-        'Go', struct('duration',0.5,shows','Speak'), ...
+        'Go', struct('duration',0.5,'shows','Speak'), ...
         'Response', struct('duration',1),...
         'iti', struct('duration',0.75,'jitter',0.25));
 
     events2 = struct( ...
-        'Cue', struct('duration',0.5,'jitter',0.25,'shows',conditions(2)), ...
+        'Cue', struct('duration',0.5,'shows',conditions(2)), ...
+        'Wait', struct('duration',0.5,'jitter',0.25), ...
         'Stimuli', struct('duration',1,'shows',stims), ...
         'Delay', struct('duration',1,'jitter',0.25), ...
         'iti', struct('duration',0.75,'jitter',0.25));
@@ -80,10 +82,6 @@ function visual_naming(subject, practice, startblock)
         num2str(c(2)) num2str(c(3)) num2str(c(4)) num2str(c(5))]);
     filename = fullfile(subjectDir, [subject fileSuff]);
 
-    % Custom tsv file
-    BIDS_out = {'onset','duration','trial_num','trial_type','stim_file','block'};
-    writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',')
-
     if exist(subjectDir,'dir')
         dateTime=strcat('_',datestr(now,30));
         subjectDir=strcat(subjectDir,dateTime);
@@ -91,6 +89,10 @@ function visual_naming(subject, practice, startblock)
     elseif ~exist(subjectDir,'dir')
         mkdir(subjectDir)
     end
+
+     % Custom tsv file
+    BIDS_out = {'onset','duration','trial_num','trial_type','stim_file','block'};
+    writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',')
     
     %% ready psychtoolbox
     sca;
@@ -106,8 +108,8 @@ function visual_naming(subject, practice, startblock)
     for iB=startblock:nBlocks
         
         % Generate, Multiply, shuffle, and jitter trials
-        trials1 = gen_trials(events1, nTrials);
-        trials2 = gen_trials(events2, ceil(nTrials/2));
+        trials1 = gen_trials(events1, nTrials1);
+        trials2 = gen_trials(events2, nTrials2);
         trials = [trials1; trials2];
         trials = trials(randperm(length(trials)));
             
@@ -166,7 +168,7 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         
         % Set out data
         [BIDS_out{cellfun('isempty',BIDS_out)}] = deal('n/a');
-        BIDS_out(:,6) = blockNum;
+        BIDS_out(:,6) = {blockNum};
         writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',','WriteMode','append')
     end
     
