@@ -77,7 +77,7 @@ function block = gen_trials(template, repetitions, shuffle)
                 [~,fname,ext] = fileparts(event.shows);
                 event.item = fname;
                 if any(ismember({'.jpg','.png'},lower(ext)))
-                    event.shows = imread(event.shows);
+                    [event.shows,~,event.alpha] = imread(event.shows);
                     event.type = 'image';
                 elseif any(ismember({'.wav'},lower(ext)))
                     [event.shows, ~] = audioread(event.shows);
