@@ -206,7 +206,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
             PsychPortAudio('Start', pahandle, 1, tPredictedVisualOnset, 0);
-            %[~,trigFlipOn] = Screen('Flip', win, tWhen);
+            [~,trigFlipOn] = Screen('Flip', win, tWhen);
             offset = 0;
             while offset == 0
                 status = PsychPortAudio('GetStatus', pahandle);
