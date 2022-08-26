@@ -25,8 +25,6 @@ function visual_naming(subject, practice, startblock)
     end
     
     %% Initialize values
-    nTrials1 = 4; % real number is nTrials X items X 6
-    nTrials2 = 3; % real number is nTrials X items X 6
     nrchannels = 1; % number of channels in the recording and playback devices
     freqS = 44100; % sampling frequency of the playback device
     freqR = 44100; % sampling frequency of the recording device
@@ -34,7 +32,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 1; % whether or not to record
+    rec = 0; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -44,10 +42,14 @@ function visual_naming(subject, practice, startblock)
         items = ["apple" "duck"]; % 2 items
         nBlocks = 1;
         fileSuff = '_Pract';
+        nTrials1 = 1; % real number is nTrials X items X 6
+        nTrials2 = 1; % real number is nTrials X items X 6
     else
         items = ["apple" "duck" "star" "umbrella"];
         nBlocks = 5; 
         fileSuff = '';
+        nTrials1 = 4; % real number is nTrials X items X 6
+        nTrials2 = 2; % real number is nTrials X items X 6
     end
     
     conditions = {imgDir + "circle_green.png", ... % 'repeat' cue
@@ -199,12 +201,12 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
-            Screen('FillOval', win, [1 1 1], centeredCircle);
+            %Screen('FillOval', win, [1 1 1], centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
             PsychPortAudio('Start', pahandle, 1, tPredictedVisualOnset, 0);
-            [~,trigFlipOn] = Screen('Flip', win, tWhen);
+            %[~,trigFlipOn] = Screen('Flip', win, tWhen);
             offset = 0;
             while offset == 0
                 status = PsychPortAudio('GetStatus', pahandle);
