@@ -194,6 +194,11 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle)
     postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     events_out = {};
+    if any(strcmp(events','response'))
+        data.condition = 'ListenSpeak';
+    else
+        data.condition = 'JustListen';
+    end
     for i = events'
         event = lower(i{:});
         data.([event 'Start']) = GetSecs;
@@ -241,11 +246,14 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle)
             if strcmp(event, "stimuli") && j <= 3
                 Screen('FillOval', win, txtclr, centeredCircle);
                 data.stim = stimmy;
+                data.trialnum = length(trialInfo) + 1;
+                data.modality = stage.type;
             end
             func();
             Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
+        
 
         % BIDS output stuff
         j = height(events_out)+1;
