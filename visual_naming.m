@@ -201,7 +201,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
-            %Screen('FillOval', win, [1 1 1], centeredCircle);
+            Screen('FillOval', win, [1 1 1], centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
