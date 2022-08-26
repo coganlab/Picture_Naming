@@ -32,10 +32,11 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 0; % whether or not to record
+    rec = 1; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
+    backgroundColor = 'white';
     
     % setting up trials structure
     if practice==1
@@ -98,7 +99,9 @@ function visual_naming(subject, practice, startblock)
     
     %% ready psychtoolbox
     sca;
-    [win, centeredCircle] = init_psychtoolbox(baseCircleDiam, 'black');
+    global centeredCircle
+    global txtclr
+    [win, centeredCircle, txtclr] = init_psychtoolbox(baseCircleDiam, backgroundColor);
 
     % Ready
     prompt(win, char("If you see a green circle, watch/listen for an "...
@@ -124,7 +127,7 @@ function visual_naming(subject, practice, startblock)
 
             % run task block
             [~, to_exit] = task_block(iB, trials, pahandle, win, ...
-                filename, centeredCircle);
+                filename);
         catch e % close and save PsychPortAudio if error occurs
             audio_conclude(rechandle, win, iB, filename)
             rethrow(e)
@@ -146,7 +149,7 @@ function visual_naming(subject, practice, startblock)
 end
 
 function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
-    filename, centeredCircle)
+    filename)
 % function that runs a trials block through psychtoolbox and generates data
 % from the experiment. Output can be either a global 'trialInfo' variable
 % or the first output of this function 'data'.
@@ -163,7 +166,7 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         end
         trial = block{iT};
         % generate trial data
-        [data, BIDS_out] = task_trial(trial, win, pahandle, centeredCircle);
+        [data, BIDS_out] = task_trial(trial, win, pahandle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
@@ -178,10 +181,12 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
 
 end
 
-function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCircle)
+function [data, events_out] = task_trial(trial_struct, win, pahandle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
     global trialInfo
+    global centeredCircle
+    global txtclr
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
@@ -197,11 +202,11 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
         stim = stage.shows;
         if ischar(stim)
             func = @() DrawFormattedText(win, stim, 'center', 'center',...
-                [1 1 1]);
+                txtclr);
             stimmy = stim;
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
-            DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
-            Screen('FillOval', win, [1 1 1], centeredCircle);
+            DrawFormattedText(win, '', 'center', 'center', txtclr);
+            Screen('FillOval', win, txtclr, centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
@@ -217,15 +222,15 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
             data.([event 'Start']) = status.StartTime;
             data.([event 'AlignedTrigger']) = trigFlipOn;
             func = @() DrawFormattedText(win, '', 'center', 'center',...
-                [1 1 1]);
+                txtclr);
             stimmy = stage.item + ".wav";
         elseif any(strcmp(stage.type, {'image', 'picture'}))
-            if strcmp(event, "stimuli")
+            if strcmp(event, "stimuli") && all(txtclr == [1 1 1])
                 stim = imcomplement(stim);
             end
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
-            stimmy = stage.item + ".PNG";
+            stimmy = stage.item + ".png";
         else
             error("Trial struct %s not formatted correctly",event)
         end
@@ -234,7 +239,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle, centeredCi
         Screen('TextSize', win, 100);
         for j = 1:frames
             if strcmp(event, "stimuli") && j <= 3
-                Screen('FillOval', win, [1,1,1], centeredCircle);
+                Screen('FillOval', win, txtclr, centeredCircle);
                 data.stim = stimmy;
             end
             func();
@@ -253,6 +258,7 @@ end
 function prompt(win, message, wrap)
 % function that temporarily halts the experiment and gives the user a text
 % prompt. The user can continue the experiment by pressing any key.
+    global txtclr
     if ~exist('wrap','var')
         wrap=[];
     end
@@ -261,7 +267,7 @@ function prompt(win, message, wrap)
         % overload the system in Rush or Priority > 0
         % Set the text size
 
-        DrawFormattedText(win, message, 'center', 'center', [1 1 1], wrap);
+        DrawFormattedText(win, message, 'center', 'center', txtclr, wrap);
         % Flip to the screen
         Screen('Flip', win);
         WaitSecs(0.001);
@@ -270,7 +276,7 @@ end
 
 %% PsychToolBox settings functions
 
-function [win, centeredCircle] = init_psychtoolbox(baseCircleDiam, clr)
+function [win, centeredCircle, textclr] = init_psychtoolbox(baseCircleDiam, clr)
 % Initialize and start Psychtoolbox. This function applies screen/window
 % setup with most settings predetermined, but with a few inputs.
 
@@ -296,7 +302,13 @@ function [win, centeredCircle] = init_psychtoolbox(baseCircleDiam, clr)
     scrnClr = struct('black',black,'white',white,'grey',grey);
     % Open an on screen window and color it grey
     [win, ~] = PsychImaging('OpenWindow', screenNumber, scrnClr.(clr));
-
+    if any(strcmp(["white","grey"],clr))
+        textclr = scrnClr.('black');
+    elseif strcmp("black",clr)
+        textclr = scrnclr.('white');
+    else
+        error("Possible background color presets are white, grey, and black")
+    end
     % Set the blend funnction for the screen
     Screen('BlendFunction', win, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
     % Get the size of the on screen window in pixels
@@ -342,7 +354,7 @@ function [pahandle, rechandle] = audio_init(win, playbackID, freqS, ...
     toneTimeFrames = ceil(toneTimeSecs / ifi);
     for i=1:toneTimeFrames
         
-        DrawFormattedText(win, '', 'center', 'center', [1 1 1]);
+        DrawFormattedText(win, '', 'center', 'center', []);
         % Flip to the screen
         Screen('Flip', win);
     end
@@ -354,8 +366,9 @@ end
 
 function audio_conclude(rechandle, win, iB, filename)
 % write audio data if neccessary and then close the audio devices
+    global txtclr
     if ~isnan(rechandle)
-        DrawFormattedText(win,'Saving...','center','center',[1 1 1]);
+        DrawFormattedText(win,'Saving...','center','center',txtclr);
         Screen('Flip', win);
         [audiodata,~,~,~] = PsychPortAudio('GetAudioData', rechandle);
         status = PsychPortAudio('GetStatus', rechandle);
