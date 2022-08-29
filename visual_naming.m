@@ -158,7 +158,7 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, filename)
 arguments
     blockNum (1,1) {mustBeInteger}
     block (1,:) cell
-    pahandle (1,1) {mustBeNumeric}
+    pahandle {mustBeScalarOrEmpty}
     filename (1,:) char
 end
 % function that runs a trials block through psychtoolbox and generates data
@@ -283,7 +283,7 @@ end
 function prompt(message, wrap)
 arguments
     message (1,:) {mustBeText}
-    wrap (1,1) {mustBeScalarOrEmpty} = []
+    wrap {mustBeScalarOrEmpty} = []
 end
 % function that temporarily halts the experiment and gives the user a text
 % prompt. The user can continue the experiment by pressing any key.
@@ -350,15 +350,15 @@ end
 function [pahandle, rechandle] = audio_init(playbackID, freqS, ...
     toneVol, nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
 arguments
-    playbackID (1,1) {mustBeNumeric}
+    playbackID {mustBeScalarOrEmpty}
     freqS (1,1) {mustBeNumeric,mustBePositive}
     toneVol (1,1) {mustBeNumeric}
     nrchannels (1,1) {mustBePositive, mustBeInteger}
     StartCue (1,1) {mustBeNumericOrLogical}
     WaitForDeviceStart (1,1) {mustBeNumericOrLogical}
-    rec (1,1) {mustBeNumericOrLogical} = false
-    recID (1,1) {mustBeNumeric} = NaN
-    freqR (1,1) {mustBeNumeric,mustBePositive} = NaN
+    rec {mustBeNumericOrLogical} = false
+    recID {mustBeScalarOrEmpty} = NaN
+    freqR  {mustBeNumeric,mustBePositive} = NaN
 end
 % Initializes the audio device startup and presets which device will record
 % and which will provide playback
@@ -403,7 +403,7 @@ end
 
 function audio_conclude(rechandle, iB, filename)
 arguments
-    rechandle (1,1) {mustbeNumeric}
+    rechandle {mustBeScalarOrEmpty}
     iB (1,1) {mustBePositive, mustBeInteger}
     filename (1,:) {mustBeText}
 end
