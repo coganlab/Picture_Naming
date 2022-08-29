@@ -4,7 +4,7 @@ function visual_naming(subject, practice, startblock)
 arguments
     subject (1,:) char = 'test'
     practice (1,1) {mustBeNumericOrLogical} = 0
-    startblock (1,1) {mustBeNumeric} = 1
+    startblock (1,1) {mustBeInteger} = 1
 end
 % A function that runs a visual naming task in pyschtoolbox.
 %
@@ -44,7 +44,7 @@ end
         fileSuff = '_Pract';
         nTrials1 = 1; % real number is nTrials X items X 6
         nTrials2 = 1; % real number is nTrials X items X 6
-        trim = 4;
+        trim = 3;
     else
         items = ["apple" "duck" "star" "umbrella"];
         nBlocks = 5; 
@@ -94,6 +94,11 @@ end
         mkdir(subjectDir)
     end
 
+    if startblock > nBlocks
+        error("Cannot have start at block " + num2str(startblock) + ...
+            " if number of total blocks is " + num2str(nBlocks))
+    end
+
      % Custom tsv file
     BIDS_out = {'onset','duration','trial_num','trial_type','stim_file','block'};
     writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',')
@@ -116,10 +121,9 @@ end
         
         % Generate, Multiply, shuffle, and jitter trials
         trials1 = gen_trials(events1, nTrials1);
-        trials2 = gen_trials(events2, nTrials2);
+        trials2 = gen_trials(events2, nTrials2,1,trim);
         trials = [trials1; trials2];
         trials = trials(randperm(length(trials)));
-        trials = trials(1:end-trim);
             
         try
             % Initialize audio devices
@@ -151,6 +155,12 @@ end
 end
 
 function [data, to_exit] = task_block(blockNum, block, pahandle, filename)
+arguments
+    blockNum (1,1) {mustBeInteger}
+    block (1,:) cell
+    pahandle (1,1) {mustBeNumeric}
+    filename (1,:) char
+end
 % function that runs a trials block through psychtoolbox and generates data
 % from the experiment. Output can be either a global 'trialInfo' variable
 % or the first output of this function 'data'.
@@ -184,6 +194,10 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, filename)
 end
 
 function [data, events_out] = task_trial(trial_struct, pahandle)
+arguments
+    trial_struct (1,1) struct
+    pahandle (1,1) {mustBeNumeric}
+end
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
     global trialInfo
@@ -267,13 +281,14 @@ function [data, events_out] = task_trial(trial_struct, pahandle)
 end
 
 function prompt(message, wrap)
+arguments
+    message (1,:) {mustBeText}
+    wrap (1,1) {mustBeScalarOrEmpty} = []
+end
 % function that temporarily halts the experiment and gives the user a text
 % prompt. The user can continue the experiment by pressing any key.
     global txtclr
     global win
-    if ~exist('wrap','var')
-        wrap=[];
-    end
     while ~KbCheck
         % Sleep one millisecond after each check, so we don't
         % overload the system in Rush or Priority > 0
@@ -289,12 +304,12 @@ end
 %% PsychToolBox settings functions
 
 function [win, centeredCircle, textclr] = init_psychtoolbox(baseCircleDiam, clr)
+arguments
+    baseCircleDiam (1,1) {mustBePositive}
+    clr (1,:) {mustBeMember(clr,["black","white","grey"])} = "black"
+end
 % Initialize and start Psychtoolbox. This function applies screen/window
 % setup with most settings predetermined, but with a few inputs.
-
-    if ~exist('clr','var')
-        clr = 'black';
-    end
 
     % Initialize Sounddriver
     InitializePsychSound(1);
@@ -316,10 +331,8 @@ function [win, centeredCircle, textclr] = init_psychtoolbox(baseCircleDiam, clr)
     [win, ~] = PsychImaging('OpenWindow', screenNumber, scrnClr.(clr));
     if any(strcmp(["white","grey"],clr))
         textclr = scrnClr.('black');
-    elseif strcmp("black",clr)
-        textclr = scrnclr.('white');
     else
-        error("Possible background color presets are white, grey, and black")
+        textclr = scrnclr.('white');
     end
     % Set the blend funnction for the screen
     Screen('BlendFunction', win, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
@@ -334,14 +347,25 @@ function [win, centeredCircle, textclr] = init_psychtoolbox(baseCircleDiam, clr)
     centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
 end
 
-function [pahandle, rechandle] = audio_init( playbackID, freqS, ...
+function [pahandle, rechandle] = audio_init(playbackID, freqS, ...
     toneVol, nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
+arguments
+    playbackID (1,1) {mustBeNumeric}
+    freqS (1,1) {mustBeNumeric,mustBePositive}
+    toneVol (1,1) {mustBeNumeric}
+    nrchannels (1,1) {mustBePositive, mustBeInteger}
+    StartCue (1,1) {mustBeNumericOrLogical}
+    WaitForDeviceStart (1,1) {mustBeNumericOrLogical}
+    rec (1,1) {mustBeNumericOrLogical} = false
+    recID (1,1) {mustBeNumeric} = NaN
+    freqR (1,1) {mustBeNumeric,mustBePositive} = NaN
+end
 % Initializes the audio device startup and presets which device will record
 % and which will provide playback
     global win
 
     repetitions = 1;
-    if ~exist('rec','var') || rec == 0
+    if ~rec
         rechandle = NaN;
     else
         % Setup recording!
@@ -378,6 +402,11 @@ function [pahandle, rechandle] = audio_init( playbackID, freqS, ...
 end
 
 function audio_conclude(rechandle, iB, filename)
+arguments
+    rechandle (1,1) {mustbeNumeric}
+    iB (1,1) {mustBePositive, mustBeInteger}
+    filename (1,:) {mustBeText}
+end
 % write audio data if neccessary and then close the audio devices
     global txtclr
     global win

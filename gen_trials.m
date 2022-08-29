@@ -1,9 +1,9 @@
 function block = gen_trials(template, repetitions, shuffle, trim)
 arguments
-    template struct
-    repetitions (1,1) {mustBeNumeric} = 1
-    shuffle {mustBeNumericOrLogical} = true
-    trim (1,1) {mustBeNumeric} = 0
+    template (1,:) struct
+    repetitions (1,1) {mustBeNumeric,mustBeInteger} = 1
+    shuffle (1,1) {mustBeNumericOrLogical} = true
+    trim (1,1) {mustBeNumeric,mustBeInteger} = 0
 end
 % Takes a set of stimuli with varying modalities and conditions and 
 % assembles, replicates, and shuffles them into a multiple sets of all
@@ -32,6 +32,9 @@ end
 %
 % shuffle (optional) is a logical that determines whether or not to 
 % randomize the order of the trials. Default is 1.
+%
+% trim (optional) indicates the number of trials you want to have randomly
+% trimmed off the end of the block
 %
 % output trials should be multiplied, shuffled, and jittered. Wtih the
 % exception of the required 'Stimuli' event, output events should only have
@@ -118,6 +121,9 @@ end
 end
 
 function expanded_struct = permute_struct(nd_substructs)
+arguments
+    nd_substructs (1,:) struct
+end
 % Takes a set of substructure arrays and permutes all possible substuctures
 % in a single structure array
     expanded_struct = struct();
