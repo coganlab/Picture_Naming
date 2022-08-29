@@ -1,4 +1,10 @@
-function block = gen_trials(template, repetitions, shuffle)
+function block = gen_trials(template, repetitions, shuffle, trim)
+arguments
+    template
+    repetitions (1,:) double = 1
+    shuffle bool = true
+    trim (1,:) double = 0
+end
 % Takes a set of stimuli with varying modalities and conditions and 
 % assembles, replicates, and shuffles them into a multiple sets of all
 % possible trials, made up of events
@@ -32,14 +38,6 @@ function block = gen_trials(template, repetitions, shuffle)
 % the fields 'duration' and 'shows'. 'Stimuli' will also have the fields
 % 'type' and 'item'. Any 'shows' values that were files will be converted
 % to MATLAB audio/image data.
-
-    
-    if ~exist('repetitions','var')
-        repetitions = 1;
-    end
-    if ~exist('shuffle','var')
-        shuffle = 1;
-    end
     
     fnames = string(fieldnames(template)');
     trials = permute_struct(template);
@@ -116,6 +114,8 @@ function block = gen_trials(template, repetitions, shuffle)
             end
         end
     end
+    if trim ~= 0
+        
 end
 
 function expanded_struct = permute_struct(nd_substructs)
