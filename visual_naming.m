@@ -2,9 +2,9 @@
 
 function visual_naming(subject, practice, startblock)
 arguments
-    subject string
-    practice double = 0
-    startblock double = 1
+    subject (1,:) char = 'test'
+    practice (1,1) {mustBeNumericOrLogical} = 0
+    startblock (1,1) {mustBeNumeric} = 1
 end
 % A function that runs a visual naming task in pyschtoolbox.
 %
@@ -38,7 +38,7 @@ end
     backgroundColor = 'white';
     
     % setting up trials structure
-    if practice==1
+    if practice
         items = ["apple" "duck"]; % 2 items
         nBlocks = 1;
         fileSuff = '_Pract';
@@ -115,10 +115,11 @@ end
     for iB=startblock:nBlocks
         
         % Generate, Multiply, shuffle, and jitter trials
-        trials1 = gen_trials(events1, nTrials1,1,trim);
-        trials2 = gen_trials(events2, nTrials2,1,trim);
+        trials1 = gen_trials(events1, nTrials1);
+        trials2 = gen_trials(events2, nTrials2);
         trials = [trials1; trials2];
         trials = trials(randperm(length(trials)));
+        trials = trials(1:end-trim);
             
         try
             % Initialize audio devices

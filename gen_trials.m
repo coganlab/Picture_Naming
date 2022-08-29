@@ -1,9 +1,9 @@
 function block = gen_trials(template, repetitions, shuffle, trim)
 arguments
-    template
-    repetitions (1,:) double = 1
-    shuffle bool = true
-    trim (1,:) double = 0
+    template struct
+    repetitions (1,1) {mustBeNumeric} = 1
+    shuffle {mustBeNumericOrLogical} = true
+    trim (1,1) {mustBeNumeric} = 0
 end
 % Takes a set of stimuli with varying modalities and conditions and 
 % assembles, replicates, and shuffles them into a multiple sets of all
