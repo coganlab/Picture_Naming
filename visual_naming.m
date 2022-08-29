@@ -1,6 +1,11 @@
 %% Visual Naming Task
 
 function visual_naming(subject, practice, startblock)
+arguments
+    subject string
+    practice double = 0
+    startblock double = 1
+end
 % A function that runs a visual naming task in pyschtoolbox.
 %
 % The task is to name the objects in the image, word, or sound
@@ -16,12 +21,6 @@ function visual_naming(subject, practice, startblock)
     rng('shuffle');
     if ispc
         Screen('Preference', 'SkipSyncTests', 1);
-    end
-    if ~exist('startblock','var')
-        startblock = 1;
-    end
-    if ~exist('practice','var')
-        practice = 0;
     end
     
     %% Initialize values
@@ -45,12 +44,14 @@ function visual_naming(subject, practice, startblock)
         fileSuff = '_Pract';
         nTrials1 = 1; % real number is nTrials X items X 6
         nTrials2 = 1; % real number is nTrials X items X 6
+        trim = 4;
     else
         items = ["apple" "duck" "star" "umbrella"];
         nBlocks = 5; 
         fileSuff = '';
         nTrials1 = 4; % real number is nTrials X items X 6
         nTrials2 = 2; % real number is nTrials X items X 6
+        trim = 0;
     end
     
     conditions = {imgDir + "circle_green.png", ... % 'repeat' cue
@@ -114,8 +115,8 @@ function visual_naming(subject, practice, startblock)
     for iB=startblock:nBlocks
         
         % Generate, Multiply, shuffle, and jitter trials
-        trials1 = gen_trials(events1, nTrials1);
-        trials2 = gen_trials(events2, nTrials2);
+        trials1 = gen_trials(events1, nTrials1,1,trim);
+        trials2 = gen_trials(events2, nTrials2,1,trim);
         trials = [trials1; trials2];
         trials = trials(randperm(length(trials)));
             

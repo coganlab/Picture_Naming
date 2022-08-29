@@ -114,8 +114,7 @@ end
             end
         end
     end
-    if trim ~= 0
-        
+    block = block(1:end-trim);
 end
 
 function expanded_struct = permute_struct(nd_substructs)
