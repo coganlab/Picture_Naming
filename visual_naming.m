@@ -32,7 +32,7 @@ function visual_naming(subject, practice, startblock)
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 1; % whether or not to record
+    rec = 0; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -98,16 +98,17 @@ function visual_naming(subject, practice, startblock)
     writecell(BIDS_out,[filename '.csv'],'FileType','text','Delimiter',',')
     
     %% ready psychtoolbox
+    % set global (immutable!) params relating to screen properties
     sca;
     global centeredCircle
     global txtclr
+    global win
     [win, centeredCircle, txtclr] = init_psychtoolbox(baseCircleDiam, backgroundColor);
 
     % Ready
-    prompt(win, char("If you see a green circle, watch/listen for an "...
-        +"object and repeat the name of that object at the subsequent "...
-        +"'Speak' cue. If you see a red circle, watch/listen without "...
-        +"repeating. Press any key to start. "),58);
+    prompt(char("If you see a red circle, just listen. If you see a " + ...
+        "green circle, please repeat when the word 'Speak' appears o" + ...
+        "n the screen. Press the space bar to begin."),58);
 
     %% Block loop
     for iB=startblock:nBlocks
@@ -121,18 +122,17 @@ function visual_naming(subject, practice, startblock)
         try
             % Initialize audio devices
             rechandle = NaN;
-            [pahandle, rechandle] = audio_init(win, ...
-                playbackdevID, freqS, toneVol, nrchannels, StartCue, ...
+            [pahandle, rechandle] = audio_init(playbackdevID, freqS, ...
+                toneVol, nrchannels, StartCue, ...
                 WaitForDeviceStart, rec, capturedevID, freqR);
 
             % run task block
-            [~, to_exit] = task_block(iB, trials, pahandle, win, ...
-                filename);
+            [~, to_exit] = task_block(iB, trials, pahandle, filename);
         catch e % close and save PsychPortAudio if error occurs
-            audio_conclude(rechandle, win, iB, filename)
+            audio_conclude(rechandle, iB, filename)
             rethrow(e)
         end
-        audio_conclude(rechandle, win, iB, filename)
+        audio_conclude(rechandle, iB, filename)
 
         % Block end prompt
         Screen('TextSize', win, 50);
@@ -140,22 +140,22 @@ function visual_naming(subject, practice, startblock)
             sca;
             return
         elseif iB~=nBlocks % Break screen
-            prompt(win,'Take a short break and press any key to continue');
+            prompt('Take a short break and press any key to continue');
         else
-            prompt(win,'You are finished, great job!');
+            prompt('You are finished, great job!');
             sca;
         end
     end
 end
 
-function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
-    filename)
+function [data, to_exit] = task_block(blockNum, block, pahandle, filename)
 % function that runs a trials block through psychtoolbox and generates data
 % from the experiment. Output can be either a global 'trialInfo' variable
 % or the first output of this function 'data'.
 
     % initialize data
     global trialInfo 
+    global win
     data = [];
 
     % loop through trials
@@ -166,7 +166,7 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
         end
         trial = block{iT};
         % generate trial data
-        [data, BIDS_out] = task_trial(trial, win, pahandle);
+        [data, BIDS_out] = task_trial(trial, pahandle);
         data.block = blockNum;
         trialInfo{iT+(length(block)*(blockNum-1))} = data;
         save([filename '.mat'],"trialInfo",'-mat')
@@ -181,12 +181,13 @@ function [data, to_exit] = task_block(blockNum, block, pahandle, win, ...
 
 end
 
-function [data, events_out] = task_trial(trial_struct, win, pahandle)
+function [data, events_out] = task_trial(trial_struct, pahandle)
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
     global trialInfo
     global centeredCircle
     global txtclr
+    global win
     ifi = Screen('GetFlipInterval', win);
     events = fieldnames(trial_struct);
 
@@ -263,10 +264,11 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle)
     end
 end
 
-function prompt(win, message, wrap)
+function prompt(message, wrap)
 % function that temporarily halts the experiment and gives the user a text
 % prompt. The user can continue the experiment by pressing any key.
     global txtclr
+    global win
     if ~exist('wrap','var')
         wrap=[];
     end
@@ -330,10 +332,11 @@ function [win, centeredCircle, textclr] = init_psychtoolbox(baseCircleDiam, clr)
     centeredCircle = CenterRectOnPointd(baseCircle, screenXpixels-0.5*baseCircleDiam, 1+0.5*baseCircleDiam); %
 end
 
-function [pahandle, rechandle] = audio_init(win, playbackID, freqS, ...
+function [pahandle, rechandle] = audio_init( playbackID, freqS, ...
     toneVol, nrchannels, StartCue, WaitForDeviceStart, rec, recID, freqR)
 % Initializes the audio device startup and presets which device will record
 % and which will provide playback
+    global win
 
     repetitions = 1;
     if ~exist('rec','var') || rec == 0
@@ -372,9 +375,10 @@ function [pahandle, rechandle] = audio_init(win, playbackID, freqS, ...
     Priority(2);
 end
 
-function audio_conclude(rechandle, win, iB, filename)
+function audio_conclude(rechandle, iB, filename)
 % write audio data if neccessary and then close the audio devices
     global txtclr
+    global win
     if ~isnan(rechandle)
         DrawFormattedText(win,'Saving...','center','center',txtclr);
         Screen('Flip', win);
