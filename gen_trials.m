@@ -1,4 +1,10 @@
-function block = gen_trials(template, repetitions, shuffle)
+function block = gen_trials(template, repetitions, shuffle, trim)
+arguments
+    template (1,:) struct
+    repetitions (1,1) {mustBeNumeric,mustBeInteger} = 1
+    shuffle (1,1) {mustBeNumericOrLogical} = true
+    trim (1,1) {mustBeNumeric,mustBeInteger} = 0
+end
 % Takes a set of stimuli with varying modalities and conditions and 
 % assembles, replicates, and shuffles them into a multiple sets of all
 % possible trials, made up of events
@@ -27,19 +33,14 @@ function block = gen_trials(template, repetitions, shuffle)
 % shuffle (optional) is a logical that determines whether or not to 
 % randomize the order of the trials. Default is 1.
 %
+% trim (optional) indicates the number of trials you want to have randomly
+% trimmed off the end of the block
+%
 % output trials should be multiplied, shuffled, and jittered. Wtih the
 % exception of the required 'Stimuli' event, output events should only have
 % the fields 'duration' and 'shows'. 'Stimuli' will also have the fields
 % 'type' and 'item'. Any 'shows' values that were files will be converted
 % to MATLAB audio/image data.
-
-    
-    if ~exist('repetitions','var')
-        repetitions = 1;
-    end
-    if ~exist('shuffle','var')
-        shuffle = 1;
-    end
     
     fnames = string(fieldnames(template)');
     trials = permute_struct(template);
@@ -116,9 +117,13 @@ function block = gen_trials(template, repetitions, shuffle)
             end
         end
     end
+    block = block(1:end-trim);
 end
 
 function expanded_struct = permute_struct(nd_substructs)
+arguments
+    nd_substructs (1,:) struct
+end
 % Takes a set of substructure arrays and permutes all possible substuctures
 % in a single structure array
     expanded_struct = struct();
