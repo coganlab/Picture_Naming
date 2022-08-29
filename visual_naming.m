@@ -194,7 +194,7 @@ function [data, events_out] = task_trial(trial_struct, win, pahandle)
     postLatencySecs = PsychPortAudio('LatencyBias', pahandle);
     waitframes = ceil((2 * postLatencySecs) / ifi) + 1;
     events_out = {};
-    if any(strcmp(events','response'))
+    if any(strcmp(events','Response'))
         data.condition = 'ListenSpeak';
     else
         data.condition = 'JustListen';
