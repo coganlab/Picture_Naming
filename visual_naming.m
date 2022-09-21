@@ -31,7 +31,7 @@ end
     baseCircleDiam=75; % diameter of the trigger circle
     StartCue = 0; % startcue setting for psychtoolbox
     WaitForDeviceStart = 1; % whether to halt playback until device starts
-    rec = 0; % whether or not to record
+    rec = 1; % whether or not to record
     toneVol = 0.003; % volume of the starting tone
     soundDir = "Stimuli" + filesep + "sounds" + filesep; % sound file directory
     imgDir = "Stimuli" + filesep + "pictures" + filesep; % image file directory
@@ -78,7 +78,7 @@ end
     
     %% Set main data output
     global trialInfo 
-    trialInfo = {};
+    trialInfo = [];
 
     % Create output folder/files
     c = clock;
@@ -180,7 +180,15 @@ end
         % generate trial data
         [data, BIDS_out] = task_trial(trial, pahandle);
         data.block = blockNum;
-        trialInfo{iT+(length(block)*(blockNum-1))} = data;
+        blacklist = {'responseStart','responseEnd','goStart','goEnd'};
+        if isfield(data,blacklist)
+            data = rmfield(data,blacklist); 
+        end
+        %final structure
+        for field = fieldnames(data)'
+           fname = field{1};
+           trialInfo(iT+(length(block)*(blockNum-1))).(fname) = data.(fname);
+        end
         save([filename '.mat'],"trialInfo",'-mat')
         
         % Set out data
@@ -222,13 +230,17 @@ end
         stage = trial_struct.(i{:});
         frames = round(stage.duration/ifi);
         stim = stage.shows;
+        if strcmp(event, "stimuli")
+            Screen('FillOval', win, txtclr, centeredCircle);
+        end
+        Screen('TextSize', win, 100);
         if ischar(stim)
             func = @() DrawFormattedText(win, stim, 'center', 'center',...
                 txtclr);
             stimmy = stim;
+            [~,trigFlipOn] = Screen('Flip', win);
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', txtclr);
-            Screen('FillOval', win, txtclr, centeredCircle);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
@@ -242,7 +254,6 @@ end
             end
 
             data.([event 'Start']) = status.StartTime;
-            data.([event 'AlignedTrigger']) = trigFlipOn;
             func = @() DrawFormattedText(win, '', 'center', 'center',...
                 txtclr);
             stimmy = stage.item + ".wav";
@@ -253,24 +264,23 @@ end
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
             stimmy = stage.item + ".png";
+            [~,trigFlipOn] = Screen('Flip', win);
         else
             error("Trial struct %s not formatted correctly",event)
         end
 
+        if strcmp(event, "stimuli")
+            data.stim = stimmy;
+            data.trialnum = length(trialInfo) + 1;
+            data.modality = stage.type;
+            data.([event 'AlignedTrigger']) = trigFlipOn;
+        end
         % Run Trial
-        Screen('TextSize', win, 100);
         for j = 1:frames
-            if strcmp(event, "stimuli") && j <= 3
-                Screen('FillOval', win, txtclr, centeredCircle);
-                data.stim = stimmy;
-                data.trialnum = length(trialInfo) + 1;
-                data.modality = stage.type;
-            end
             func();
             Screen('Flip', win);
         end
         data.([event 'End']) = GetSecs;
-        
 
         % BIDS output stuff
         j = height(events_out)+1;
