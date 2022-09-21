@@ -180,7 +180,10 @@ end
         % generate trial data
         [data, BIDS_out] = task_trial(trial, pahandle);
         data.block = blockNum;
-        data = rmfield(data,{'responseStart','responseEnd','goStart','goEnd'});  
+        blacklist = {'responseStart','responseEnd','goStart','goEnd'};
+        if isfield(data,blacklist)
+            data = rmfield(data,blacklist); 
+        end
         %final structure
         for field = fieldnames(data)'
            fname = field{1};
