@@ -179,11 +179,15 @@ end
         trial = block{iT};
         % generate trial data
         [data, BIDS_out] = task_trial(trial, pahandle);
+
+        % standardize trial data
         data.block = blockNum;
         blacklist = {'responseStart','responseEnd','goStart','goEnd'};
         if isfield(data,blacklist)
             data = rmfield(data,blacklist); 
         end
+        data = renameStructField(data,'delayEnd','goStart');
+
         %final structure
         for field = fieldnames(data)'
            fname = field{1};
@@ -234,52 +238,57 @@ end
             Screen('FillOval', win, txtclr, centeredCircle);
         end
         Screen('TextSize', win, 100);
+        twhen = 0;
         if ischar(stim)
             func = @() DrawFormattedText(win, stim, 'center', 'center',...
                 txtclr);
             stimmy = stim;
-            [~,trigFlipOn] = Screen('Flip', win);
         elseif any(strcmp(stage.type, {'sound', 'audio'}))
             DrawFormattedText(win, '', 'center', 'center', txtclr);
             PsychPortAudio('FillBuffer', pahandle, stim(:,1)');
             tWhen = GetSecs + (waitframes - 0.5)*ifi;
             tPredictedVisualOnset = PredictVisualOnsetForTime(win, tWhen);
             PsychPortAudio('Start', pahandle, 1, tPredictedVisualOnset, 0);
-            [~,trigFlipOn] = Screen('Flip', win, tWhen);
-            offset = 0;
-            while offset == 0
-                status = PsychPortAudio('GetStatus', pahandle);
-                offset = status.PositionSecs;
-                WaitSecs('YieldSecs', 0.001);
-            end
-
-            data.([event 'Start']) = status.StartTime;
             func = @() DrawFormattedText(win, '', 'center', 'center',...
                 txtclr);
-            stimmy = stage.item + ".wav";
+            stimmy = char(stage.item + ".wav");
         elseif any(strcmp(stage.type, {'image', 'picture'}))
             if strcmp(event, "stimuli") && all(txtclr == [1 1 1])
                 stim = imcomplement(stim);
             end
             texture = Screen('MakeTexture',win,stim);
             func = @() Screen('DrawTexture', win, texture, []);
-            stimmy = stage.item + ".png";
-            [~,trigFlipOn] = Screen('Flip', win);
+            stimmy = char(stage.item + ".png");
         else
             error("Trial struct %s not formatted correctly",event)
         end
-
+        
+        % Run Trigger
         if strcmp(event, "stimuli")
+            [~,trigFlipOn] = Screen('Flip', win, twhen);
             data.stim = stimmy;
-            data.trialnum = length(trialInfo) + 1;
             data.modality = stage.type;
             data.([event 'AlignedTrigger']) = trigFlipOn;
+            offset = 0;
+            while offset == 0
+                if any(strcmp(stage.type, {'sound', 'audio'}))
+                    status = PsychPortAudio('GetStatus', pahandle);
+                    data.([event 'Start']) = status.StartTime;
+                    offset = status.PositionSecs;
+                else
+                    offset = 1;
+                end
+                WaitSecs('YieldSecs', 0.001);
+            end
         end
-        % Run Trial
+
+        % Run trial
         for j = 1:frames
             func();
             Screen('Flip', win);
         end
+
+        data.trialnum = length(trialInfo) + 1;
         data.([event 'End']) = GetSecs;
 
         % BIDS output stuff
