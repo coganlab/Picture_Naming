@@ -271,11 +271,15 @@ end
             data.([event 'AlignedTrigger']) = trigFlipOn;
             offset = 0;
             while offset == 0
-                status = PsychPortAudio('GetStatus', pahandle);
-                offset = status.PositionSecs;
+                if any(strcmp(stage.type, {'sound', 'audio'}))
+                    status = PsychPortAudio('GetStatus', pahandle);
+                    data.([event 'Start']) = status.StartTime;
+                    offset = status.PositionSecs;
+                else
+                    offset = 1;
+                end
                 WaitSecs('YieldSecs', 0.001);
             end
-            data.([event 'Start']) = status.StartTime;
         end
 
         % Run trial
