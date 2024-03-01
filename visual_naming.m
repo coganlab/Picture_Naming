@@ -1,10 +1,11 @@
 %% Visual Naming Task
 
-function visual_naming(subject, practice, startblock)
+function visual_naming(subject, practice, startblock, txtsize)
 arguments
     subject (1,:) char = 'test'
     practice (1,1) {mustBeNumericOrLogical} = 0
     startblock (1,1) {mustBeInteger} = 1
+    txtsize (1,1) {mustBeNumeric} = 100
 end
 % A function that runs a visual naming task in pyschtoolbox.
 %
@@ -133,7 +134,7 @@ end
                 WaitForDeviceStart, rec, capturedevID, freqR);
 
             % run task block
-            [~, to_exit] = task_block(iB, trials, pahandle, filename);
+            [~, to_exit] = task_block(iB, trials, pahandle, filename, txtsize);
         catch e % close and save PsychPortAudio if error occurs
             audio_conclude(rechandle, iB, filename)
             rethrow(e)
@@ -154,12 +155,13 @@ end
     end
 end
 
-function [data, to_exit] = task_block(blockNum, block, pahandle, filename)
+function [data, to_exit] = task_block(blockNum, block, pahandle, filename, txtsize)
 arguments
     blockNum (1,1) {mustBeInteger}
     block (1,:) cell
     pahandle {mustBeScalarOrEmpty}
     filename (1,:) char
+    txtsize (1,1) {mustBeNumeric}
 end
 % function that runs a trials block through psychtoolbox and generates data
 % from the experiment. Output can be either a global 'trialInfo' variable
@@ -178,7 +180,7 @@ end
         end
         trial = block{iT};
         % generate trial data
-        [data, BIDS_out] = task_trial(trial, pahandle);
+        [data, BIDS_out] = task_trial(trial, pahandle, txtsize);
 
         % standardize trial data
         data.block = blockNum;
@@ -205,10 +207,11 @@ end
 
 end
 
-function [data, events_out] = task_trial(trial_struct, pahandle)
+function [data, events_out] = task_trial(trial_struct, pahandle, txtsize)
 arguments
     trial_struct (1,1) struct
     pahandle (1,1) {mustBeNumeric}
+    txtsize (1,1) {mustBeNumeric}
 end
 % function that presents a Psychtoolbox trial and collects the data
 % trial_struct is the trial structure
@@ -237,7 +240,7 @@ end
         if strcmp(event, "stimuli")
             Screen('FillOval', win, txtclr, centeredCircle);
         end
-        Screen('TextSize', win, 100);
+        Screen('TextSize', win, txtsize);
         twhen = 0;
         if ischar(stim)
             func = @() DrawFormattedText(win, stim, 'center', 'center',...
